@@ -63,7 +63,7 @@ object DomainName:
       val text = value.stripSuffix(".")
       text.find(_ > 0x7f) match
         case Some(character) => Left(Error.NonAscii(character))
-        case None => fromLabels(text.split("\.", -1).toVector.map(asciiBytes))
+        case None => fromLabels(text.split("\\.", -1).toVector.map(asciiBytes))
 
   def fromLabels(labels: Vector[Vector[Byte]]): Either[Error, DomainName] =
     labels.find(_.isEmpty) match

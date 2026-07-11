@@ -62,7 +62,8 @@ private[dns] object NameCodec:
       var index = 0
       while index < literalCount do
         val suffix = labels.drop(index)
-        if writer.size < 0x4000 then suffixOffsets.getOrElseUpdate(suffix, writer.size)
+        if writer.size < 0x4000 then
+          suffixOffsets.getOrElseUpdate(suffix, writer.size): Unit
         val label = labels(index)
         writer.u8(label.size)
         writer.bytes(label)
