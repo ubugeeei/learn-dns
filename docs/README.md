@@ -110,7 +110,7 @@ answers and distinguish NODATA, NXDOMAIN, delegation, and wildcard synthesis.
 25. Negative caching
 26. CNAME chains
 27. Read a referral
-28. Root hints and iterative resolution
+28. [Root hints and iterative resolution](03-resolver/01-iterative-resolution.md)
 29. Glue and bailiwick
 30. Retry budgets and failure modes
 31. Query-name minimization

@@ -48,8 +48,8 @@ operations are separate advanced projects.
 | TCP fallback | Partial | TC retry and framing | loopback integration | persistent connection reuse and multiple outstanding queries |
 | Positive cache | Partial | monotonic expiry | boundary tests | RRset-aware replacement and capacity eviction |
 | Negative cache | Partial | SOA TTL/MINIMUM | NXDOMAIN test | NODATA cache key semantics and stale policy |
-| Iterative resolver | Partial | bounded root/referral walk and CNAME | packet scenarios | resolve missing NS addresses, retries, and chapter |
-| Bailiwick validation | Partial | accepts only in-zone glue | malicious additional scenario | chapter and sibling-zone cases |
+| Iterative resolver | Partial | bounded root/referral walk and CNAME | packet scenarios | resolve missing NS addresses and retries |
+| Bailiwick validation | Partial | accepts only in-zone glue | malicious additional scenario | sibling-zone cases |
 | Authoritative exact answers | Partial | `Zone` | examples | multi-question policy documentation |
 | Delegations and glue | Partial | closest NS cut | referral test | glue bailiwick validation at construction |
 | Wildcards | Partial | closest-encloser synthesis | example | empty non-terminal and wildcard CNAME tables |
