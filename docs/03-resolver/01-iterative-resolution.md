@@ -50,6 +50,45 @@ The authority record says responsibility for `example.test.` belongs to
 `ns.example.test.`. The additional record supplies an address so we can contact
 that server. This address is called **glue**.
 
+## Bootstrap from root hints
+
+The hierarchy cannot tell us how to contact the root before we have contacted
+the root. A **root hints file** breaks that circular dependency. It contains the
+root NS RRset and address records for those advertised servers.
+
+```mermaid
+flowchart LR
+  file["named.root"] --> parser["ZoneFile.parseRecords"]
+  parser --> ns["Root NS target names"]
+  parser --> addresses["A and AAAA records"]
+  ns --> filter["Keep matching owners only"]
+  addresses --> filter
+  filter --> roots["Initial server addresses"]
+  roots --> walk["First iterative query"]
+```
+
+`RootHints` does not accept every address in the file. It first finds NS records
+owned by the root, then keeps only A/AAAA records whose owner is one of those NS
+targets. An unrelated address cannot silently become a bootstrap server.
+
+Download the current file from InterNIC rather than compiling addresses into the
+program:
+
+```console
+curl -o root.hints https://www.internic.net/domain/named.root
+```
+
+Then start the local recursive service:
+
+```console
+sbt 'runMain dns.cli.DnsRecurse --root-hints ./root.hints --port 5353'
+```
+
+Root hints are bootstrap data, not the root zone itself. Once running, the
+resolver learns fresher root NS and address RRsets through normal DNS responses.
+Operational software periodically refreshes the hints file and should review its
+provenance before replacing trusted bootstrap data.
+
 ```mermaid
 flowchart LR
   q["Question: www.example.test"] --> cut["Delegation: example.test"]
@@ -269,3 +308,4 @@ You should now be able to explain:
 - [RFC 1034 §5.3.5 — Resolver failures](https://www.rfc-editor.org/rfc/rfc1034#section-5.3.5)
 - [RFC 2181 §5 — RRsets](https://www.rfc-editor.org/rfc/rfc2181#section-5)
 - [RFC  bailiwick clarification, RFC 8499 §5](https://www.rfc-editor.org/rfc/rfc8499#section-5)
+- [InterNIC root hints](https://www.internic.net/domain/named.root)
