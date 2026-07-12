@@ -141,7 +141,7 @@ answers and distinguish NODATA, NXDOMAIN, delegation, and wildcard synthesis.
 - RFC-to-code index
 - IANA registry workflow
 - Scala 3 feature index
-- Glossary
+- [Glossary](glossary.md)
 
 ## What exists today
 
@@ -161,4 +161,3 @@ The two original specifications remain the starting point:
 They have been updated by many later RFCs. Each chapter links the exact section
 that governs the behavior being implemented; the appendix will also provide the
 reverse mapping from an RFC requirement to source and tests.
-

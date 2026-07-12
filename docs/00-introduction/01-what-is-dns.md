@@ -66,14 +66,11 @@ from the word “server.”
 
 Read `www.example.com.` from right to left:
 
-```text
-                         .  root
-                         |
-                        com
-                         |
-                      example
-                         |
-                        www
+```mermaid
+flowchart TB
+  root[".  root"] --> com["com"]
+  com --> example["example"]
+  example --> www["www"]
 ```
 
 Each piece is a *label*. A sequence of labels ending at the root is a domain
@@ -100,25 +97,21 @@ for zones and administrative boundaries.
 
 Assume a recursive resolver knows only root-server addresses.
 
-```text
-application       recursive          root           com        example.com
-    |                  |                |              |              |
-    | A www.example.com|                |              |              |
-    |----------------->|                |              |              |
-    |                  | A www.example.com             |              |
-    |                  |--------------->|              |              |
-    |                  | referral: com NS + glue       |              |
-    |                  |<---------------|              |              |
-    |                  | A www.example.com             |              |
-    |                  |------------------------------>|              |
-    |                  | referral: example.com NS + glue              |
-    |                  |<------------------------------|              |
-    |                  | A www.example.com                            |
-    |                  |--------------------------------------------->|
-    |                  | 192.0.2.10                                   |
-    |                  |<---------------------------------------------|
-    | 192.0.2.10       |                |              |              |
-    |<-----------------|                |              |              |
+```mermaid
+sequenceDiagram
+  participant App as Application
+  participant Resolver as Recursive resolver
+  participant Root as Root server
+  participant Com as com server
+  participant Example as example.com server
+  App->>Resolver: Where is www.example.com?
+  Resolver->>Root: Where is www.example.com?
+  Root-->>Resolver: Ask a com server
+  Resolver->>Com: Where is www.example.com?
+  Com-->>Resolver: Ask an example.com server
+  Resolver->>Example: Where is www.example.com?
+  Example-->>Resolver: 192.0.2.10
+  Resolver-->>App: 192.0.2.10
 ```
 
 A *referral* says, roughly, “I do not own the final answer, but these name
@@ -224,4 +217,3 @@ we will open a DNS packet and account for every one of its first twelve bytes.
 - [RFC 1034 §4.3.2 — Server algorithm](https://www.rfc-editor.org/rfc/rfc1034#section-4.3.2)
 - [RFC 1035 §4.1 — Message format](https://www.rfc-editor.org/rfc/rfc1035#section-4.1)
 - [RFC 2308 — Negative caching](https://www.rfc-editor.org/rfc/rfc2308)
-
