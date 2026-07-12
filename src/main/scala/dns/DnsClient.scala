@@ -18,19 +18,22 @@ final class DnsClient(
     udpPayloadSize: Int = 4096,
     random: SecureRandom = new SecureRandom()
 ):
-  require(udpPayloadSize >= 512 && udpPayloadSize <= 65535)
+  import DnsClient.Error
 
-  enum Error:
-    case Timeout
-    case Io(cause: java.io.IOException)
-    case Decode(error: DecodeError)
-    case MismatchedResponse
+  require(udpPayloadSize >= 512 && udpPayloadSize <= 65535)
 
   def query(name: DomainName, recordType: RecordType): Either[Error, Message] =
     val request = Message(random.nextInt(0x10000), questions = Vector(Question(name, recordType)))
     exchangeUdp(request).flatMap { response =>
       if response.flags.truncated then exchangeTcp(request) else Right(response)
     }
+
+object DnsClient:
+  enum Error:
+    case Timeout
+    case Io(cause: java.io.IOException)
+    case Decode(error: DecodeError)
+    case MismatchedResponse
 
   private def exchangeUdp(request: Message): Either[Error, Message] =
     val socket = new DatagramSocket()
@@ -71,4 +74,3 @@ final class DnsClient(
         Error.MismatchedResponse
       )
     }
-
