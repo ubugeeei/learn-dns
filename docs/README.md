@@ -9,6 +9,9 @@ The project has two equally important outputs:
 - `src/` is the final, reusable implementation.
 - `docs/` explains how to derive it without assuming DNS knowledge.
 
+See [Coverage and Completion Contract](COVERAGE.md) for an honest feature-by-feature
+status. A table-of-contents entry is not considered implemented by itself.
+
 The approach is inspired by the small, continuously working milestones used by
 the [chibivue book](https://book.chibivue.land/). The goal is not to paste a
 finished parser. The goal is to understand why each byte, type, limit, and
