@@ -10,12 +10,15 @@ import scala.collection.mutable
  * [[https://www.rfc-editor.org/rfc/rfc9267 RFC 9267]].
  */
 private[dns] object NameCodec:
+  val MaxPointerJumps = 128
+
   def decode(cursor: WireCursor): Either[DecodeError, DomainName] =
     val labels = Vector.newBuilder[Vector[Byte]]
     val visited = mutable.Set.empty[Int]
     var scan = cursor.offset
     var resume: Option[Int] = None
     var done = false
+    var pointerJumps = 0
     var failure: Option[DecodeError] = None
 
     while !done && failure.isEmpty do
@@ -38,8 +41,12 @@ private[dns] object NameCodec:
                 DecodeError.CompressionPointerOutOfBounds(pointer, cursor.bytes.length)
               )
             else
-              if resume.isEmpty then resume = Some(scan + 2)
-              scan = pointer
+              pointerJumps += 1
+              if pointerJumps > MaxPointerJumps then
+                failure = Some(DecodeError.CompressionPointerLimit(MaxPointerJumps))
+              else
+                if resume.isEmpty then resume = Some(scan + 2)
+                scan = pointer
         else if (length & 0xc0) != 0 then failure = Some(DecodeError.InvalidLabelTag(scan, length))
         else if scan + 1 + length > cursor.bytes.length then
           failure = Some(DecodeError.UnexpectedEnd(scan + 1 + length, cursor.bytes.length))

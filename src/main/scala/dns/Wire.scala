@@ -30,6 +30,7 @@ enum DecodeError derives CanEqual:
   case UnexpectedEnd(requiredOffset: Int, packetLength: Int)
   case InvalidLabelTag(offset: Int, value: Int)
   case CompressionLoop(offset: Int)
+  case CompressionPointerLimit(limit: Int)
   case CompressionPointerOutOfBounds(pointer: Int, packetLength: Int)
   case InvalidName(error: DomainName.Error)
   case InvalidRData(recordType: RecordType, detail: String)

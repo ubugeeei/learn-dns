@@ -67,6 +67,21 @@ class MessageCodecSuite extends munit.FunSuite:
     )
   }
 
+  test("COMPRESSION-BUDGET: rejects a long acyclic pointer chain") {
+    val pointerCount = NameCodec.MaxPointerJumps + 1
+    val packet = Array.ofDim[Byte](pointerCount * 2 + 1)
+    (0 until pointerCount).foreach { index =>
+      val target = (index + 1) * 2
+      packet(index * 2) = (0xc0 | (target >>> 8)).toByte
+      packet(index * 2 + 1) = target.toByte
+    }
+
+    assertEquals(
+      NameCodec.decode(new WireCursor(packet)),
+      Left(DecodeError.CompressionPointerLimit(NameCodec.MaxPointerJumps))
+    )
+  }
+
   test("rejects truncated and trailing messages") {
     assert(MessageCodec.decode(Array.fill(11)(0.toByte)).isLeft)
     val query = hex("123401000001000000000000076578616d706c6503636f6d0000010001") ++ Array(0.toByte)

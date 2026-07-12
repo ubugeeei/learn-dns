@@ -6,17 +6,18 @@ import java.nio.file.Files
 
 class CliSuite extends munit.FunSuite:
   test("QUERY-CLI: parses type, server, timeout, UDP size, and EDNS switch") {
-    val config = DnsQuery.parse(Vector(
-      "example.test",
-      "AAAA",
-      "--server",
-      "[2001:db8::53]:5353",
-      "--timeout-ms",
-      "750",
-      "--udp-size",
-      "1400",
-      "--no-edns"
-    )).toOption.get
+    val config =
+      DnsQuery.parse(Vector(
+        "example.test",
+        "AAAA",
+        "--server",
+        "[2001:db8::53]:5353",
+        "--timeout-ms",
+        "750",
+        "--udp-size",
+        "1400",
+        "--no-edns"
+      )).toOption.get
 
     assertEquals(config.name, DomainName.unsafe("example.test."))
     assertEquals(config.recordType, RecordType.AAAA)
@@ -42,24 +43,26 @@ class CliSuite extends munit.FunSuite:
     val file = Files.createTempFile("learn-dns-zone", ".zone")
     try
       Files.writeString(file, minimumZone, StandardCharsets.UTF_8)
-      val config = DnsServe.parse(Vector(
-        file.toString,
-        "example.test.",
-        "--bind",
-        "127.0.0.1",
-        "--port",
-        "0",
-        "--udp-size",
-        "1400"
-      )).toOption.get
+      val config =
+        DnsServe.parse(Vector(
+          file.toString,
+          "example.test.",
+          "--bind",
+          "127.0.0.1",
+          "--port",
+          "0",
+          "--udp-size",
+          "1400"
+        )).toOption.get
 
       val loaded = DnsServe.load(config).toOption.get
 
       assertEquals(loaded._1.port, 0)
       assertEquals(loaded._1.maxUdpResponseBytes, 1400)
-      val response = loaded._2.answer(
-        Message(1, questions = Vector(Question(DomainName.unsafe("www.example.test."), RecordType.A)))
-      )
+      val response = loaded._2.answer(Message(
+        1,
+        questions = Vector(Question(DomainName.unsafe("www.example.test."), RecordType.A))
+      ))
       assertEquals(response.answers.map(_.data), Vector(RecordData.ipv4("192.0.2.80")))
     finally Files.deleteIfExists(file): Unit
   }
@@ -81,7 +84,8 @@ class CliSuite extends munit.FunSuite:
     assert(rendered.contains("192.0.2.1"))
   }
 
-  private val minimumZone = """
+  private val minimumZone =
+    """
     |$ORIGIN example.test.
     |$TTL 1h
     |@ SOA ns hostmaster 1 1h 15m 1w 5m

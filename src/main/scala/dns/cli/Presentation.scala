@@ -36,26 +36,27 @@ private[cli] object Presentation:
   private def record(value: ResourceRecord): String =
     s"${value.name}\t${value.ttl}\t${value.recordClass}\t${value.recordType}\t${data(value.data)}"
 
-  private def data(value: RecordData): String = value match
-    case RecordData.A(address)    => address.getHostAddress
-    case RecordData.AAAA(address) => address.getHostAddress
-    case RecordData.NS(name)      => name.toString
-    case RecordData.CName(name)   => name.toString
-    case RecordData.Ptr(name)     => name.toString
-    case RecordData.MX(preference, exchange) => s"$preference $exchange"
-    case RecordData.TXT(chunks) => chunks.map(chunk => quoted(chunk)).mkString(" ")
-    case RecordData.SOA(primary, mailbox, serial, refresh, retry, expire, minimum) =>
-      s"$primary $mailbox $serial $refresh $retry $expire $minimum"
-    case RecordData.SRV(priority, weight, port, target) =>
-      s"$priority $weight $port $target"
-    case RecordData.OPT(options) => s"; EDNS options: ${options.map(_.code).mkString(",")}"
-    case RecordData.Unknown(_, bytes) => bytes.map(byte => f"${byte & 0xff}%02x").mkString
+  private def data(value: RecordData): String =
+    value match
+      case RecordData.A(address)               => address.getHostAddress
+      case RecordData.AAAA(address)            => address.getHostAddress
+      case RecordData.NS(name)                 => name.toString
+      case RecordData.CName(name)              => name.toString
+      case RecordData.Ptr(name)                => name.toString
+      case RecordData.MX(preference, exchange) => s"$preference $exchange"
+      case RecordData.TXT(chunks)              => chunks.map(chunk => quoted(chunk)).mkString(" ")
+      case RecordData.SOA(primary, mailbox, serial, refresh, retry, expire, minimum) =>
+        s"$primary $mailbox $serial $refresh $retry $expire $minimum"
+      case RecordData.SRV(priority, weight, port, target) => s"$priority $weight $port $target"
+      case RecordData.OPT(options)      => s"; EDNS options: ${options.map(_.code).mkString(",")}"
+      case RecordData.Unknown(_, bytes) => bytes.map(byte => f"${byte & 0xff}%02x").mkString
 
   private def quoted(bytes: Vector[Byte]): String =
-    val escaped = bytes.iterator.map { byte =>
-      val value = byte & 0xff
-      if value == '"' || value == '\\' then s"\\${value.toChar}"
-      else if value >= 32 && value <= 126 then value.toChar.toString
-      else f"\\$value%03d"
-    }.mkString
+    val escaped =
+      bytes.iterator.map { byte =>
+        val value = byte & 0xff
+        if value == '"' || value == '\\' then s"\\${value.toChar}"
+        else if value >= 32 && value <= 126 then value.toChar.toString
+        else f"\\$value%03d"
+      }.mkString
     s"\"$escaped\""

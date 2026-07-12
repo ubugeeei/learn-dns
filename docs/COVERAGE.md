@@ -42,7 +42,7 @@ operations are separate advanced projects.
 | Header/questions/sections | Partial | `Protocol`, `MessageCodec` | fixtures + round trips | opcode-specific message validation |
 | A, AAAA, NS, CNAME, PTR, MX, TXT, SOA, SRV | Partial | typed `RecordData` | codec round trip | per-type malformed RDATA tables and chapters |
 | Unknown RR preservation | Partial | `RecordData.Unknown` | round trip indirectly | explicit property and class/type registry chapter |
-| Name compression decode | Partial | loop/bounds checks | adversarial fixtures | pointer-hop budget and more multi-hop fixtures |
+| Name compression decode | Partial | loop, bounds, and 128-hop budget | adversarial fixtures | more multi-hop fixture catalog |
 | Name compression encode | Partial | owner-name suffixes | repeated-name test | compression inside final-packet RDATA |
 | UDP stub exchange | Partial | `DnsClient` with EDNS advertisement | loopback integration | response-source validation and retry policy |
 | TCP fallback | Partial | TC retry and framing | loopback integration | persistent connection reuse and multiple outstanding queries |
