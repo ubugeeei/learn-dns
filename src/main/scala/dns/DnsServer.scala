@@ -1,20 +1,24 @@
 package dns
 
-import java.io.{DataInputStream, DataOutputStream, EOFException}
-import java.net.{DatagramPacket, DatagramSocket, InetAddress, InetSocketAddress, ServerSocket, Socket, SocketException}
-import java.util.concurrent.{ExecutorService, Executors, Semaphore, TimeUnit}
-import java.util.concurrent.atomic.{AtomicBoolean, LongAdder}
+import java.io.{ DataInputStream, DataOutputStream, EOFException }
+import java.net.{
+  DatagramPacket, DatagramSocket, InetAddress, InetSocketAddress, ServerSocket, Socket,
+  SocketException
+}
+import java.util.concurrent.{ ExecutorService, Executors, Semaphore, TimeUnit }
+import java.util.concurrent.atomic.{ AtomicBoolean, LongAdder }
 
-/** A dual-protocol authoritative DNS server with a bounded work queue.
-  *
-  * UDP and TCP are required transports for general-purpose DNS implementations;
-  * see [[https://www.rfc-editor.org/rfc/rfc7766 RFC 7766]]. The server binds both
-  * transports to one port, truncates oversized UDP responses, frames TCP messages,
-  * bounds concurrent handlers, and supports deterministic shutdown.
-  *
-  * `handler` is deliberately a pure message boundary. Zone lookup, forwarding,
-  * or recursion can be colocated with their policy and tested without sockets.
-  */
+/**
+ * A dual-protocol authoritative DNS server with a bounded work queue.
+ *
+ * UDP and TCP are required transports for general-purpose DNS implementations; see
+ * [[https://www.rfc-editor.org/rfc/rfc7766 RFC 7766]]. The server binds both transports to one
+ * port, truncates oversized UDP responses, frames TCP messages, bounds concurrent handlers, and
+ * supports deterministic shutdown.
+ *
+ * `handler` is deliberately a pure message boundary. Zone lookup, forwarding, or recursion can be
+ * colocated with their policy and tested without sockets.
+ */
 final class DnsServer private (
     val address: InetSocketAddress,
     udpSocket: DatagramSocket,
@@ -68,7 +72,7 @@ final class DnsServer private (
         else rejected.increment()
       catch
         case _: SocketException if !running.get() => ()
-        case _: java.io.IOException => malformed.increment()
+        case _: java.io.IOException               => malformed.increment()
 
   private def tcpLoop(): Unit =
     while running.get() do
@@ -87,7 +91,7 @@ final class DnsServer private (
           socket.close()
       catch
         case _: SocketException if !running.get() => ()
-        case _: java.io.IOException => malformed.increment()
+        case _: java.io.IOException               => malformed.increment()
 
   private def handleTcp(socket: Socket): Unit =
     socket.setSoTimeout(config.readTimeoutMillis)
@@ -106,9 +110,9 @@ final class DnsServer private (
           output.flush()
           answered.increment()
       catch
-        case _: EOFException => continue = false
+        case _: EOFException                    => continue = false
         case _: java.net.SocketTimeoutException => continue = false
-        case _: java.io.IOException => continue = false
+        case _: java.io.IOException             => continue = false
 
   private def process(payload: Array[Byte]): Message =
     MessageCodec.decode(payload) match
@@ -118,24 +122,40 @@ final class DnsServer private (
       case Left(_) =>
         malformed.increment()
         val id = if payload.length >= 2 then ((payload(0) & 0xff) << 8) | (payload(1) & 0xff) else 0
-        Message(id, Flags(response = true, recursionDesired = false, responseCode = ResponseCode.FormatError))
+        Message(
+          id,
+          Flags(response = true, recursionDesired = false, responseCode = ResponseCode.FormatError)
+        )
 
-  private def errorFor(request: Message, code: ResponseCode): Message =
-    Message(request.id, Flags(response = true, opCode = request.flags.opCode,
-      recursionDesired = request.flags.recursionDesired, responseCode = code), request.questions)
+  private def errorFor(request: Message, code: ResponseCode): Message = Message(
+    request.id,
+    Flags(
+      response = true,
+      opCode = request.flags.opCode,
+      recursionDesired = request.flags.recursionDesired,
+      responseCode = code
+    ),
+    request.questions
+  )
 
   private def truncateForUdp(message: Message, limit: Int): Array[Byte] =
     var candidate = message
     var encoded = MessageCodec.encode(candidate)
     while encoded.length > limit &&
-        (candidate.additionals.nonEmpty || candidate.authorities.nonEmpty || candidate.answers.nonEmpty) do
+      (candidate.additionals.nonEmpty || candidate.authorities.nonEmpty ||
+        candidate.answers.nonEmpty)
+    do
       candidate =
-        if candidate.additionals.nonEmpty then candidate.copy(additionals = candidate.additionals.dropRight(1))
-        else if candidate.authorities.nonEmpty then candidate.copy(authorities = candidate.authorities.dropRight(1))
+        if candidate.additionals.nonEmpty then
+          candidate.copy(additionals = candidate.additionals.dropRight(1))
+        else if candidate.authorities.nonEmpty then
+          candidate.copy(authorities = candidate.authorities.dropRight(1))
         else candidate.copy(answers = candidate.answers.dropRight(1))
       encoded = MessageCodec.encode(candidate.copy(flags = candidate.flags.copy(truncated = true)))
     if encoded.length > limit then
-      MessageCodec.encode(candidate.copy(flags = candidate.flags.copy(truncated = true), questions = Vector.empty))
+      MessageCodec.encode(
+        candidate.copy(flags = candidate.flags.copy(truncated = true), questions = Vector.empty)
+      )
     else encoded
 
 object DnsServer:

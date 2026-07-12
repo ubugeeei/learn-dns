@@ -25,11 +25,24 @@ class CacheSuite extends munit.FunSuite:
   test("negative TTL is the minimum of SOA TTL and MINIMUM") {
     val clock = new ManualTicker()
     val cache = new Cache(clock)
-    val soa = ResourceRecord(DomainName.unsafe("example.com."), RecordClass.IN, 600,
-      RecordData.SOA(DomainName.unsafe("ns.example.com."), DomainName.unsafe("hostmaster.example.com."),
-        1, 3600, 600, 86400, 120))
+    val soa = ResourceRecord(
+      DomainName.unsafe("example.com."),
+      RecordClass.IN,
+      600,
+      RecordData.SOA(
+        DomainName.unsafe("ns.example.com."),
+        DomainName.unsafe("hostmaster.example.com."),
+        1,
+        3600,
+        600,
+        86400,
+        120
+      )
+    )
     val response = answer(Vector.empty).copy(
-      flags = Flags(response = true, responseCode = ResponseCode.NameError), authorities = Vector(soa))
+      flags = Flags(response = true, responseCode = ResponseCode.NameError),
+      authorities = Vector(soa)
+    )
     assert(cache.put(question, response))
     clock.nanos = 119_000_000_000L
     assertEquals(cache.get(question).map(_.authorities.head.ttl), Some(481L))
@@ -39,14 +52,21 @@ class CacheSuite extends munit.FunSuite:
 
   test("SERVFAIL is never cached") {
     val cache = new Cache(new ManualTicker())
-    val response = answer(Vector(address(30))).copy(
-      flags = Flags(response = true, responseCode = ResponseCode.ServerFailure))
+    val response = answer(Vector(address(30)))
+      .copy(flags = Flags(response = true, responseCode = ResponseCode.ServerFailure))
     assert(!cache.put(question, response))
   }
 
-  private def address(ttl: Long): ResourceRecord =
-    ResourceRecord(name, RecordClass.IN, ttl, RecordData.ipv4("192.0.2.1"))
+  private def address(ttl: Long): ResourceRecord = ResourceRecord(
+    name,
+    RecordClass.IN,
+    ttl,
+    RecordData.ipv4("192.0.2.1")
+  )
 
-  private def answer(records: Vector[ResourceRecord]): Message =
-    Message(1, Flags(response = true), Vector(question), answers = records)
-
+  private def answer(records: Vector[ResourceRecord]): Message = Message(
+    1,
+    Flags(response = true),
+    Vector(question),
+    answers = records
+  )

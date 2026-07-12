@@ -2,13 +2,13 @@ package dns
 
 import scala.collection.mutable
 
-/** RFC 1035 domain-name wire codec with suffix compression.
-  *
-  * Decoding follows pointers without moving the caller past the pointer target,
-  * rejects cycles, and limits traversal to the packet. These requirements close
-  * the classic parser hazards described by
-  * [[https://www.rfc-editor.org/rfc/rfc9267 RFC 9267]].
-  */
+/**
+ * RFC 1035 domain-name wire codec with suffix compression.
+ *
+ * Decoding follows pointers without moving the caller past the pointer target, rejects cycles, and
+ * limits traversal to the packet. These requirements close the classic parser hazards described by
+ * [[https://www.rfc-editor.org/rfc/rfc9267 RFC 9267]].
+ */
 private[dns] object NameCodec:
   def decode(cursor: WireCursor): Either[DecodeError, DomainName] =
     val labels = Vector.newBuilder[Vector[Byte]]
@@ -34,7 +34,9 @@ private[dns] object NameCodec:
           else
             val pointer = ((length & 0x3f) << 8) | (cursor.bytes(scan + 1) & 0xff)
             if pointer >= cursor.bytes.length then
-              failure = Some(DecodeError.CompressionPointerOutOfBounds(pointer, cursor.bytes.length))
+              failure = Some(
+                DecodeError.CompressionPointerOutOfBounds(pointer, cursor.bytes.length)
+              )
             else
               if resume.isEmpty then resume = Some(scan + 2)
               scan = pointer
@@ -47,7 +49,7 @@ private[dns] object NameCodec:
 
     failure match
       case Some(error) => Left(error)
-      case None =>
+      case None        =>
         cursor.seek(resume.getOrElse(scan)).flatMap { _ =>
           DomainName.fromLabels(labels.result()).left.map(DecodeError.InvalidName.apply)
         }
@@ -62,15 +64,14 @@ private[dns] object NameCodec:
       var index = 0
       while index < literalCount do
         val suffix = labels.drop(index)
-        if writer.size < 0x4000 then
-          suffixOffsets.getOrElseUpdate(suffix, writer.size): Unit
+        if writer.size < 0x4000 then suffixOffsets.getOrElseUpdate(suffix, writer.size): Unit
         val label = labels(index)
         writer.u8(label.size)
         writer.bytes(label)
         index += 1
       pointerIndex match
         case Some(found) => writer.u16(0xc000 | suffixOffsets(labels.drop(found)))
-        case None => writer.u8(0)
+        case None        => writer.u8(0)
 
     /** Writes a name without pointers, useful for a separately buffered RDATA field. */
     def writeUncompressed(name: DomainName): Unit =

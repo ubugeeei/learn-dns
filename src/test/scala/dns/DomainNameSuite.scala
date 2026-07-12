@@ -14,7 +14,10 @@ class DomainNameSuite extends munit.FunSuite:
 
   test("DNS comparison is ASCII case insensitive") {
     assertEquals(DomainName.unsafe("WWW.Example.COM."), DomainName.unsafe("www.example.com."))
-    assertEquals(DomainName.unsafe("WWW.Example.COM.").hashCode, DomainName.unsafe("www.example.com.").hashCode)
+    assertEquals(
+      DomainName.unsafe("WWW.Example.COM.").hashCode,
+      DomainName.unsafe("www.example.com.").hashCode
+    )
   }
 
   test("subdomain comparison follows label boundaries") {
@@ -25,17 +28,17 @@ class DomainNameSuite extends munit.FunSuite:
   }
 
   test("parent removes the leftmost label until root") {
-    assertEquals(DomainName.unsafe("www.example.com.").parent, Some(DomainName.unsafe("example.com.")))
+    assertEquals(
+      DomainName.unsafe("www.example.com.").parent,
+      Some(DomainName.unsafe("example.com."))
+    )
     assertEquals(DomainName.unsafe("com.").parent, Some(DomainName.Root))
     assertEquals(DomainName.Root.parent, None)
   }
 
   test("rejects empty and oversized labels") {
     assertEquals(DomainName.fromString("a..example."), Left(DomainName.Error.EmptyLabel))
-    assertEquals(
-      DomainName.fromString("a" * 64 + "."),
-      Left(DomainName.Error.LabelTooLong(64))
-    )
+    assertEquals(DomainName.fromString("a" * 64 + "."), Left(DomainName.Error.LabelTooLong(64)))
   }
 
   test("rejects names beyond the 255 octet wire limit") {

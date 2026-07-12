@@ -5,9 +5,20 @@ import scala.concurrent.duration.*
 class DnsServerSuite extends munit.FunSuite:
   private val origin = DomainName.unsafe("example.test.")
   private val host = DomainName.unsafe("www.example.test.")
-  private val soa = ResourceRecord(origin, RecordClass.IN, 300, RecordData.SOA(
-    DomainName.unsafe("ns.example.test."), DomainName.unsafe("hostmaster.example.test."),
-    1, 3600, 600, 86400, 300))
+  private val soa = ResourceRecord(
+    origin,
+    RecordClass.IN,
+    300,
+    RecordData.SOA(
+      DomainName.unsafe("ns.example.test."),
+      DomainName.unsafe("hostmaster.example.test."),
+      1,
+      3600,
+      600,
+      86400,
+      300
+    )
+  )
 
   test("serves an authoritative answer over a real UDP socket") {
     val record = ResourceRecord(host, RecordClass.IN, 60, RecordData.ipv4("192.0.2.42"))
@@ -24,7 +35,12 @@ class DnsServerSuite extends munit.FunSuite:
 
   test("truncated UDP responses are retried over TCP") {
     val records = (1 to 8).toVector.map { index =>
-      ResourceRecord(host, RecordClass.IN, 60, RecordData.TXT(Vector(("payload-" + index).getBytes.toVector)))
+      ResourceRecord(
+        host,
+        RecordClass.IN,
+        60,
+        RecordData.TXT(Vector(("payload-" + index).getBytes.toVector))
+      )
     }
     val zone = Zone.create(origin, soa, records).toOption.get
     val config = DnsServer.Config(maxUdpResponseBytes = 64)

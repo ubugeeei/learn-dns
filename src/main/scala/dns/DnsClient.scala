@@ -1,17 +1,20 @@
 package dns
 
-import java.io.{DataInputStream, DataOutputStream}
-import java.net.{DatagramPacket, DatagramSocket, InetSocketAddress, Socket, SocketTimeoutException}
+import java.io.{ DataInputStream, DataOutputStream }
+import java.net.{
+  DatagramPacket, DatagramSocket, InetSocketAddress, Socket, SocketTimeoutException
+}
 import java.security.SecureRandom
 import scala.concurrent.duration.*
 
-/** Blocking DNS stub client with UDP-to-TCP fallback.
-  *
-  * TCP retry on the TC bit implements
-  * [[https://www.rfc-editor.org/rfc/rfc7766#section-6.1.3 RFC 7766 §6.1.3]].
-  * Response IDs and echoed questions are checked to avoid accepting unrelated
-  * datagrams. This is a stub, not an iterative recursive resolver.
-  */
+/**
+ * Blocking DNS stub client with UDP-to-TCP fallback.
+ *
+ * TCP retry on the TC bit implements
+ * [[https://www.rfc-editor.org/rfc/rfc7766#section-6.1.3 RFC 7766 §6.1.3]]. Response IDs and echoed
+ * questions are checked to avoid accepting unrelated datagrams. This is a stub, not an iterative
+ * recursive resolver.
+ */
 final class DnsClient(
     server: InetSocketAddress,
     timeout: FiniteDuration = 3.seconds,
@@ -39,7 +42,7 @@ final class DnsClient(
       socket.receive(packet)
       validate(request, buffer.slice(0, packet.getLength))
     catch
-      case _: SocketTimeoutException => Left(Error.Timeout)
+      case _: SocketTimeoutException  => Left(Error.Timeout)
       case cause: java.io.IOException => Left(Error.Io(cause))
     finally socket.close()
 
@@ -55,14 +58,15 @@ final class DnsClient(
       val length = input.readUnsignedShort()
       validate(request, input.readNBytes(length))
     catch
-      case _: SocketTimeoutException => Left(Error.Timeout)
+      case _: SocketTimeoutException  => Left(Error.Timeout)
       case cause: java.io.IOException => Left(Error.Io(cause))
     finally socket.close()
 
-  private def validate(request: Message, bytes: Array[Byte]): Either[Error, Message] =
-    MessageCodec.decode(bytes).left.map(Error.Decode.apply).flatMap { response =>
+  private def validate(request: Message, bytes: Array[Byte]): Either[Error, Message] = MessageCodec
+    .decode(bytes).left.map(Error.Decode.apply).flatMap { response =>
       Either.cond(
-        response.flags.response && response.id == request.id && response.questions == request.questions,
+        response.flags.response && response.id == request.id &&
+          response.questions == request.questions,
         response,
         Error.MismatchedResponse
       )
