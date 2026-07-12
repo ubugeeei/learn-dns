@@ -3,11 +3,12 @@ package dns
 import org.scalacheck.Gen
 import org.scalacheck.Prop.forAll
 
-/** Executable protocol laws shared by every concrete packet example.
-  *
-  * Example tests document packets we know. Properties document invariants that
-  * must survive inputs we did not think to write by hand.
-  */
+/**
+ * Executable protocol laws shared by every concrete packet example.
+ *
+ * Example tests document packets we know. Properties document invariants that must survive inputs
+ * we did not think to write by hand.
+ */
 class ProtocolProperties extends munit.ScalaCheckSuite:
   private val label: Gen[String] =
     for
@@ -19,9 +20,7 @@ class ProtocolProperties extends munit.ScalaCheckSuite:
     for
       count <- Gen.choose(0, 5)
       labels <- Gen.listOfN(count, label)
-    yield
-      if labels.isEmpty then DomainName.Root
-      else DomainName.unsafe(labels.mkString(".") + ".")
+    yield if labels.isEmpty then DomainName.Root else DomainName.unsafe(labels.mkString(".") + ".")
 
   private val recordType: Gen[RecordType] = Gen.oneOf(
     RecordType.A,
@@ -56,10 +55,7 @@ class ProtocolProperties extends munit.ScalaCheckSuite:
       val message = Message(
         id = id,
         flags = Flags(recursionDesired = true),
-        questions = Vector(
-          Question(name, kind),
-          Question(name, RecordType.AAAA)
-        )
+        questions = Vector(Question(name, kind), Question(name, RecordType.AAAA))
       )
       assertEquals(MessageCodec.decode(MessageCodec.encode(message)), Right(message))
     }
