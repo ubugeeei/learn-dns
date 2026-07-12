@@ -23,6 +23,12 @@ Serve a validated master file on UDP and TCP port 5353:
 sbt 'runMain dns.cli.DnsServe ./example.zone example.test. --port 5353'
 ```
 
+Run a caching iterative resolver from explicitly configured root servers:
+
+```console
+sbt 'runMain dns.cli.DnsRecurse --root 198.41.0.4 --port 5353'
+```
+
 The implementation follows the IETF specifications linked from its Scaladoc
 and from the book. It is intended for learning, experiments, and small local
 services; it is not a hardened replacement for a production recursive resolver.

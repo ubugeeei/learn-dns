@@ -40,12 +40,10 @@ class RecursiveServiceSuite extends munit.FunSuite:
 
     val responsePacket = service.answer(Message(1, Flags(response = true), Vector(question)))
     val multiQuestion = service.answer(Message(2, questions = Vector(question, question)))
-    val unsupportedClass = service.answer(
-      Message(3, questions = Vector(question.copy(recordClass = RecordClass.CH)))
-    )
-    val unsupportedOpcode = service.answer(
-      Message(4, Flags(opCode = OpCode.Status), Vector(question))
-    )
+    val unsupportedClass = service
+      .answer(Message(3, questions = Vector(question.copy(recordClass = RecordClass.CH))))
+    val unsupportedOpcode = service
+      .answer(Message(4, Flags(opCode = OpCode.Status), Vector(question)))
 
     assertEquals(responsePacket.flags.responseCode, ResponseCode.FormatError)
     assertEquals(multiQuestion.flags.responseCode, ResponseCode.FormatError)
@@ -76,7 +74,9 @@ class RecursiveServiceSuite extends munit.FunSuite:
   private def serviceWith(client: NameServerClient): RecursiveService =
     new RecursiveService(
       new IterativeResolver(Vector(root), client),
-      new Cache(new Ticker { override def nanos: Long = 0L })
+      new Cache(new Ticker {
+        override def nanos: Long = 0L
+      })
     )
 
   private val finalAnswer = Message(

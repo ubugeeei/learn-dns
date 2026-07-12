@@ -56,7 +56,7 @@ operations are separate advanced projects.
 | UDP/TCP authoritative server | Partial | `DnsServer` with EDNS/legacy sizing | real sockets | overload response and observability hooks |
 | EDNS(0) | Covered | OPT model, payload negotiation, extended RCODE, BADVERS, DO, unknown options | codec + socket scenarios | — |
 | Zone-file loading | Partial | bounded master-file parser for common RR types and directives | normal, escape, multi-error, limit scenarios | injected `$INCLUDE` loader and strict address lexer |
-| Query/server CLI | Partial | query and authoritative server entry points, stable text output | parser, loader, rendering tests | JSON output and process-level integration |
+| Query/server CLI | Partial | query, authoritative, and recursive entry points with stable text output | parser, loader, rendering tests | JSON output and process-level integration |
 | Fuzzing | Partial | arbitrary bounded ScalaCheck bytes | totality property | coverage-guided corpus and CI job |
 
 ## Book coverage

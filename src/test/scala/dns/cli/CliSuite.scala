@@ -84,6 +84,27 @@ class CliSuite extends munit.FunSuite:
     assert(rendered.contains("192.0.2.1"))
   }
 
+  test("RECURSIVE-CLI: requires roots and parses IPv4 and IPv6 endpoints") {
+    assertEquals(DnsRecurse.parse(Vector.empty), Left("at least one --root address is required"))
+
+    val config =
+      DnsRecurse.parse(Vector(
+        "--root",
+        "192.0.2.1",
+        "--root",
+        "[2001:db8::1]:5353",
+        "--port",
+        "0",
+        "--udp-size",
+        "1400"
+      )).toOption.get
+
+    assertEquals(config.roots.map(_.getPort), Vector(53, 5353))
+    assertEquals(config.roots.map(_.getAddress.getAddress.length), Vector(4, 16))
+    assertEquals(config.port, 0)
+    assertEquals(config.maxUdpResponseBytes, 1400)
+  }
+
   private val minimumZone =
     """
     |$ORIGIN example.test.

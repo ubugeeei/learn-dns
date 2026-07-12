@@ -1,16 +1,13 @@
 package dns
 
-/** DNS message policy that combines iterative resolution and TTL caching.
-  *
-  * The service validates the request shape, preserves client transaction
-  * metadata, advertises recursion availability, and maps internal resolver
-  * failures to protocol response codes without leaking transport details.
-  * It can be passed directly to [[DnsServer.start]].
-  */
-final class RecursiveService(
-    resolver: IterativeResolver,
-    cache: Cache
-):
+/**
+ * DNS message policy that combines iterative resolution and TTL caching.
+ *
+ * The service validates the request shape, preserves client transaction metadata, advertises
+ * recursion availability, and maps internal resolver failures to protocol response codes without
+ * leaking transport details. It can be passed directly to [[DnsServer.start]].
+ */
+final class RecursiveService(resolver: IterativeResolver, cache: Cache):
   /** Answers one standard QUERY according to RFC 1034 resolver semantics. */
   def answer(request: Message): Message =
     if request.flags.response then error(request, ResponseCode.FormatError)
@@ -31,17 +28,16 @@ final class RecursiveService(
         case Vector(_) => error(request, ResponseCode.Refused)
         case _         => error(request, ResponseCode.FormatError)
 
-  private def forClient(request: Message, response: Message): Message =
-    response.copy(
-      id = request.id,
-      flags = response.flags.copy(
-        response = true,
-        recursionDesired = request.flags.recursionDesired,
-        recursionAvailable = true
-      ),
-      questions = request.questions,
-      additionals = response.additionals.filterNot(_.recordType == RecordType.OPT)
-    )
+  private def forClient(request: Message, response: Message): Message = response.copy(
+    id = request.id,
+    flags = response.flags.copy(
+      response = true,
+      recursionDesired = request.flags.recursionDesired,
+      recursionAvailable = true
+    ),
+    questions = request.questions,
+    additionals = response.additionals.filterNot(_.recordType == RecordType.OPT)
+  )
 
   private def error(request: Message, code: ResponseCode): Message = Message(
     id = request.id,
@@ -54,4 +50,3 @@ final class RecursiveService(
     ),
     questions = request.questions
   )
-
