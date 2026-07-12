@@ -55,6 +55,15 @@ class ZoneFileSuite extends munit.FunSuite:
     )
   }
 
+  test("MASTER-FILE-NAME-ESCAPE: preserves an escaped dot inside an owner label") {
+    val input = minimumZone + "escaped\\.owner A 192.0.2.44\n"
+    val zone = ZoneFile.parse(input, origin).toOption.get
+
+    val response = answer(zone, "escaped\\.owner.example.test.", RecordType.A)
+
+    assertEquals(response.answers.map(_.data), Vector(RecordData.ipv4("192.0.2.44")))
+  }
+
   test("MASTER-FILE-DIAGNOSTICS: accumulates independent line failures") {
     val input =
       """

@@ -103,15 +103,24 @@ private[dns] object ZoneFileSyntax:
           if index + 1 >= value.length then
             return Left(ZoneFile.Diagnostic(line, "trailing escape"))
           val digits = value.slice(index + 1, math.min(index + 4, value.length))
-          if digits.length == 3 && digits.forall(_.isDigit) then
-            val decoded = digits.toInt
-            if decoded > 255 then
-              return Left(ZoneFile.Diagnostic(line, s"decimal escape out of range: $decoded"))
-            token += decoded.toChar
-            index += 3
+          if quoted then
+            if digits.length == 3 && digits.forall(_.isDigit) then
+              val decoded = digits.toInt
+              if decoded > 255 then
+                return Left(ZoneFile.Diagnostic(line, s"decimal escape out of range: $decoded"))
+              token += decoded.toChar
+              index += 3
+            else
+              index += 1
+              token += value(index)
           else
-            index += 1
-            token += value(index)
+            token += '\\'
+            if digits.length == 3 && digits.forall(_.isDigit) then
+              token ++= digits
+              index += 3
+            else
+              index += 1
+              token += value(index)
         case character => token += character
       index += 1
     finish()

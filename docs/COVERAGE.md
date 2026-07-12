@@ -38,7 +38,7 @@ operations are separate advanced projects.
 
 | Area | Status | Implementation | Tests | Missing before Covered |
 |---|---|---|---|---|
-| Absolute domain names | Partial | `DomainName` | examples + properties | escaped presentation form and IDNA boundary |
+| Absolute domain names | Partial | octet model with reversible RFC 1035 escapes | examples + properties + zone escape scenario | explicit IDNA boundary |
 | Header/questions/sections | Partial | `Protocol`, bounded decoder and validated encoder | fixtures + round trips + encode limits | opcode-specific message validation |
 | A, AAAA, NS, CNAME, PTR, MX, TXT, SOA, SRV | Partial | typed `RecordData` with RDLENGTH/TXT encode bounds | codec round trip | per-type malformed RDATA tables and chapters |
 | Unknown RR preservation | Partial | `RecordData.Unknown` | round trip indirectly | explicit property and class/type registry chapter |
@@ -55,7 +55,7 @@ operations are separate advanced projects.
 | Wildcards | Partial | closest-encloser synthesis | example | empty non-terminal and wildcard CNAME tables |
 | UDP/TCP authoritative server | Partial | `DnsServer` with EDNS/legacy sizing | real sockets | overload response and observability hooks |
 | EDNS(0) | Covered | OPT model, payload negotiation, extended RCODE, BADVERS, DO, unknown options | codec + socket scenarios | — |
-| Zone-file loading | Partial | bounded master-file parser for common RR types and directives | normal, escape, multi-error, limit scenarios | injected `$INCLUDE` loader and strict address lexer |
+| Zone-file loading | Partial | bounded master-file parser with reversible name/TXT escapes | normal, escape, multi-error, limit scenarios | injected `$INCLUDE` loader and strict address lexer |
 | Query/server CLI | Partial | query, authoritative, and recursive entry points with stable text output | parser, loader, rendering tests | JSON output and process-level integration |
 | Fuzzing | Partial | arbitrary bounded ScalaCheck bytes | totality property | coverage-guided corpus and CI job |
 

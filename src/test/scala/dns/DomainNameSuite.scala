@@ -49,3 +49,26 @@ class DomainNameSuite extends munit.FunSuite:
   test("rejects non-ASCII presentation input instead of corrupting it") {
     assertEquals(DomainName.fromString("café.example."), Left(DomainName.Error.NonAscii('é')))
   }
+
+  test("PRESENTATION-ESCAPE: escaped dots remain inside one label") {
+    val name = DomainName.fromString("service\\.blue.example.").toOption.get
+
+    assertEquals(name.labels.head, "service.blue".getBytes.toVector)
+    assertEquals(name.toString, "service\\.blue.example.")
+    assertEquals(DomainName.fromString(name.toString), Right(name))
+  }
+
+  test("PRESENTATION-ESCAPE: decimal octets round trip") {
+    val name = DomainName.fromString("a\\000b\\255.example.").toOption.get
+
+    assertEquals(name.labels.head, Vector[Byte]('a'.toByte, 0, 'b'.toByte, -1))
+    assertEquals(name.toString, "a\\000b\\255.example.")
+  }
+
+  test("PRESENTATION-ESCAPE: malformed escapes are typed errors") {
+    assertEquals(DomainName.fromString("name\\"), Left(DomainName.Error.TrailingEscape))
+    assertEquals(
+      DomainName.fromString("name\\999.example."),
+      Left(DomainName.Error.DecimalEscapeOutOfRange(999))
+    )
+  }

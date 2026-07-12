@@ -52,6 +52,8 @@ object DomainName:
     case LabelTooLong(length: Int)
     case NameTooLong(length: Int)
     case NonAscii(character: Char)
+    case TrailingEscape
+    case DecimalEscapeOutOfRange(value: Int)
 
   val Root: DomainName = new DomainName(Vector.empty)
 
@@ -59,16 +61,10 @@ object DomainName:
    * Parses an absolute or root presentation name.
    *
    * A missing final dot is accepted as a convenience but still produces an absolute name. Backslash
-   * escaping and IDNA conversion deliberately belong in a higher presentation layer; see
-   * [[https://www.rfc-editor.org/rfc/rfc4343 RFC 4343]] for DNS case rules.
+   * escapes follow [[https://www.rfc-editor.org/rfc/rfc1035#section-5.1 RFC 1035 §5.1]].
    */
   def fromString(value: String): Either[Error, DomainName] =
-    if value == "." || value.isEmpty then Right(Root)
-    else
-      val text = value.stripSuffix(".")
-      text.find(_ > 0x7f) match
-        case Some(character) => Left(Error.NonAscii(character))
-        case None            => fromLabels(text.split("\\.", -1).toVector.map(asciiBytes))
+    if value == "." || value.isEmpty then Right(Root) else parsePresentation(value)
 
   def fromLabels(labels: Vector[Vector[Byte]]): Either[Error, DomainName] =
     labels.find(_.isEmpty) match
@@ -94,4 +90,59 @@ object DomainName:
     folded(left) == folded(right)
 
   private def renderLabel(label: Vector[Byte]): String =
-    label.iterator.map(byte => (byte & 0xff).toChar).mkString
+    label.iterator.map { byte =>
+      val value = byte & 0xff
+      if value == '.' || value == '\\' then "\\" + value.toChar
+      else if value >= 33 && value <= 126 then value.toChar.toString
+      else "\\%03d".format(value)
+    }.mkString
+
+  private def parsePresentation(value: String): Either[Error, DomainName] =
+    val labels = Vector.newBuilder[Vector[Byte]]
+    val label = Vector.newBuilder[Byte]
+    var labelLength = 0
+    var index = 0
+    var failure: Option[Error] = None
+
+    def append(byte: Byte): Unit =
+      label += byte
+      labelLength += 1
+
+    def finishLabel(): Unit =
+      labels += label.result()
+      label.clear()
+      labelLength = 0
+
+    while index < value.length && failure.isEmpty do
+      value(index) match
+        case '.' =>
+          if labelLength == 0 then failure = Some(Error.EmptyLabel)
+          else
+            finishLabel()
+            if index == value.length - 1 then index = value.length
+        case '\\' =>
+          if index + 1 >= value.length then failure = Some(Error.TrailingEscape)
+          else
+            val decimal = value.slice(index + 1, math.min(index + 4, value.length))
+            if decimal.length == 3 && decimal.forall(_.isDigit) then
+              val decoded = decimal.toInt
+              if decoded > 255 then failure = Some(Error.DecimalEscapeOutOfRange(decoded))
+              else
+                append(decoded.toByte)
+                index += 3
+            else
+              val escaped = value(index + 1)
+              if escaped > 0x7f then failure = Some(Error.NonAscii(escaped))
+              else
+                append(escaped.toByte)
+                index += 1
+        case character =>
+          if character > 0x7f then failure = Some(Error.NonAscii(character))
+          else append(character.toByte)
+      index += 1
+
+    failure match
+      case Some(error) => Left(error)
+      case None        =>
+        if labelLength > 0 then finishLabel()
+        fromLabels(labels.result())
