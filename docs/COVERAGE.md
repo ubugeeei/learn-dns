@@ -54,7 +54,7 @@ operations are separate advanced projects.
 | Delegations and glue | Partial | closest NS cut | referral test | glue bailiwick validation at construction |
 | Wildcards | Partial | closest-encloser synthesis | example | empty non-terminal and wildcard CNAME tables |
 | UDP/TCP authoritative server | Partial | `DnsServer` | real sockets | EDNS size, overload response, observability hooks |
-| EDNS(0) | Planned | — | — | OPT model, payload size, extended RCODE, version handling |
+| EDNS(0) | Partial | OPT model, payload size, extended RCODE, version, DO, unknown options | round trip + malformed option | negotiation in client/server and chapter |
 | Zone-file loading | Planned | — | — | RFC 1035 presentation parser and validation diagnostics |
 | Query/server CLI | Planned | — | — | commands, exit codes, human and JSON output |
 | Fuzzing | Partial | arbitrary bounded ScalaCheck bytes | totality property | coverage-guided corpus and CI job |

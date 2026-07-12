@@ -104,6 +104,7 @@ object MessageCodec:
         for priority <- cursor.u16(); weight <- cursor.u16(); port <- cursor.u16(); target <- name
         yield RecordData.SRV(priority, weight, port, target)
       case RecordType.TXT => decodeTxt(cursor, length).map(RecordData.TXT.apply)
+      case RecordType.OPT => decodeEdnsOptions(cursor, length).map(RecordData.OPT.apply)
       case other          => cursor.take(length).map(RecordData.Unknown(other, _))
 
   private def decodeTxt(
@@ -120,6 +121,30 @@ object MessageCodec:
           error = Some(DecodeError.InvalidRData(RecordType.TXT, "chunk exceeds RDLENGTH"))
         case Left(value) => error = Some(value)
     error.toLeft(chunks.result())
+
+  private def decodeEdnsOptions(
+      cursor: WireCursor,
+      length: Int
+  ): Either[DecodeError, Vector[EdnsOption]] =
+    val end = cursor.offset + length
+    val options = Vector.newBuilder[EdnsOption]
+    var error: Option[DecodeError] = None
+    while cursor.offset < end && error.isEmpty do
+      val decoded =
+        for
+          code <- cursor.u16()
+          optionLength <- cursor.u16()
+          _ <- Either.cond(
+            cursor.offset + optionLength <= end,
+            (),
+            DecodeError.InvalidRData(RecordType.OPT, "option exceeds RDLENGTH")
+          )
+          data <- cursor.take(optionLength)
+        yield EdnsOption(code, data)
+      decoded match
+        case Right(option) => options += option
+        case Left(value)   => error = Some(value)
+    error.toLeft(options.result())
 
   private def writeRecord(
       writer: WireWriter,
@@ -150,6 +175,12 @@ object MessageCodec:
         Vector(serial, refresh, retry, expire, minimum).foreach(writer.u32)
       case RecordData.SRV(priority, weight, port, target) =>
         writer.u16(priority); writer.u16(weight); writer.u16(port); names.writeUncompressed(target)
+      case RecordData.OPT(options) =>
+        options.foreach { option =>
+          writer.u16(option.code)
+          writer.u16(option.data.size)
+          writer.bytes(option.data)
+        }
       case RecordData.Unknown(_, bytes) => writer.bytes(bytes)
 
   private def decodeFlags(bits: Int): Flags = Flags(

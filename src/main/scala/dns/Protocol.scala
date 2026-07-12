@@ -163,7 +163,13 @@ enum RecordData derives CanEqual:
       minimum: Long
   )
   case SRV(priority: Int, weight: Int, port: Int, target: DomainName)
+  case OPT(options: Vector[EdnsOption])
   case Unknown(recordType: RecordType, bytes: Vector[Byte])
+
+/** One length-delimited EDNS option. Unknown option codes remain lossless. */
+final case class EdnsOption(code: Int, data: Vector[Byte]) derives CanEqual:
+  require(code >= 0 && code <= 0xffff, s"EDNS option code out of range: $code")
+  require(data.size <= 0xffff, s"EDNS option data is too large: ${data.size}")
 
 object RecordData:
   def ipv4(value: String): RecordData.A = A(InetAddress.getByName(value).asInstanceOf[Inet4Address])
@@ -198,6 +204,7 @@ final case class ResourceRecord(
       case _: RecordData.TXT         => RecordType.TXT
       case _: RecordData.SOA         => RecordType.SOA
       case _: RecordData.SRV         => RecordType.SRV
+      case _: RecordData.OPT         => RecordType.OPT
       case value: RecordData.Unknown => value.recordType
 
 /**
@@ -216,3 +223,43 @@ final case class Message(
     additionals: Vector[ResourceRecord] = Vector.empty
 ):
   require(id >= 0 && id <= 0xffff, s"ID out of unsigned 16-bit range: $id")
+
+/**
+ * Structured OPT pseudo-record from
+ * [[https://www.rfc-editor.org/rfc/rfc6891#section-6.1.2 RFC 6891 §6.1.2]].
+ */
+final case class Edns(
+    udpPayloadSize: Int,
+    extendedResponseCode: Int = 0,
+    version: Int = 0,
+    dnssecOk: Boolean = false,
+    options: Vector[EdnsOption] = Vector.empty
+) derives CanEqual:
+  require(udpPayloadSize >= 512 && udpPayloadSize <= 0xffff)
+  require(extendedResponseCode >= 0 && extendedResponseCode <= 0xff)
+  require(version >= 0 && version <= 0xff)
+
+  def toRecord: ResourceRecord =
+    val flags = if dnssecOk then 0x8000L else 0L
+    val ttl = (extendedResponseCode.toLong << 24) | (version.toLong << 16) | flags
+    ResourceRecord(
+      DomainName.Root,
+      RecordClass.Unknown(udpPayloadSize),
+      ttl,
+      RecordData.OPT(options)
+    )
+
+object Edns:
+  /** Validates and extracts the fields overloaded into an OPT record. */
+  def fromRecord(record: ResourceRecord): Option[Edns] =
+    record match
+      case ResourceRecord(DomainName.Root, recordClass, ttl, RecordData.OPT(options))
+          if recordClass.code >= 512 && recordClass.code <= 0xffff =>
+        Some(Edns(
+          udpPayloadSize = recordClass.code,
+          extendedResponseCode = ((ttl >>> 24) & 0xff).toInt,
+          version = ((ttl >>> 16) & 0xff).toInt,
+          dnssecOk = (ttl & 0x8000L) != 0,
+          options = options
+        ))
+      case _ => None

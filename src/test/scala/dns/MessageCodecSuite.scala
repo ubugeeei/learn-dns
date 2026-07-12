@@ -81,5 +81,29 @@ class MessageCodecSuite extends munit.FunSuite:
     )
   }
 
+  test("EDNS-ROUNDTRIP: preserves size, DO bit, version, and unknown options") {
+    val edns = Edns(
+      udpPayloadSize = 1232,
+      extendedResponseCode = 2,
+      dnssecOk = true,
+      options = Vector(EdnsOption(65001, Vector[Byte](1, 2, 3)))
+    )
+    val message = Message(1, additionals = Vector(edns.toRecord))
+
+    val decoded = MessageCodec.decode(MessageCodec.encode(message)).toOption.get
+
+    assertEquals(decoded, message)
+    assertEquals(decoded.additionals.headOption.flatMap(Edns.fromRecord), Some(edns))
+  }
+
+  test("EDNS-OPTION-LENGTH: rejects an option beyond RDLENGTH") {
+    val packet = hex("00008000000000000000000100002904d000000000000400010001")
+
+    assertEquals(
+      MessageCodec.decode(packet),
+      Left(DecodeError.InvalidRData(RecordType.OPT, "option exceeds RDLENGTH"))
+    )
+  }
+
   private def hex(value: String): Array[Byte] =
     value.grouped(2).map(Integer.parseInt(_, 16).toByte).toArray
