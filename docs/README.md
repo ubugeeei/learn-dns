@@ -119,10 +119,10 @@ answers and distinguish NODATA, NXDOMAIN, delegation, and wildcard synthesis.
 
 32. Zones are not domain names
 33. [Load and validate zone data](04-authoritative/01-zone-files.md)
-34. Exact RRset answers
-35. NODATA and NXDOMAIN
-36. Delegations and glue
-37. Wildcards
+34. [Exact RRset answers](07-authoritative-server.md#exact-owner-and-exact-type)
+35. [NODATA and NXDOMAIN](07-authoritative-server.md#nodata-the-name-exists-the-type-does-not)
+36. [Delegations and glue](07-authoritative-server.md#delegation-is-checked-first)
+37. [Wildcards](07-authoritative-server.md#find-the-closest-wildcard-encloser)
 38. UDP and TCP listeners
 39. Truncation and EDNS payload sizes
 40. [Run and query the authoritative server](04-authoritative/02-run-the-server.md)

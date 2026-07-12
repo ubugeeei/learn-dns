@@ -50,9 +50,9 @@ operations are separate advanced projects.
 | Negative cache | Partial | normalized SOA TTL, name-wide NXDOMAIN, type-specific NODATA | key and expiry tests | stale-serving policy |
 | Iterative resolver | Partial | validated root hints, referrals, CNAME, retries, subsidiary NS lookup, shared budgets, cached service | bootstrap, packet, and request-policy scenarios | IPv6 subsidiary lookup |
 | Bailiwick validation | Partial | accepts only in-zone glue | malicious additional scenario | sibling-zone cases |
-| Authoritative exact answers | Partial | `Zone` with one-question and CNAME/SOA validation | branch tests | detailed policy chapter |
-| Delegations and glue | Partial | closest NS cut | referral test | glue bailiwick validation at construction |
-| Wildcards | Partial | closest-encloser synthesis, empty non-terminal/type blocking, CNAME, zone-cut precedence | branch tests | detailed chapter |
+| Authoritative exact answers | Covered | `Zone` with one-question and CNAME/SOA validation | branch tests | — |
+| Delegations and glue | Covered | closest NS cut and in-zone target glue | referral and precedence tests | — |
+| Wildcards | Covered | closest-encloser synthesis, empty non-terminal/type blocking, CNAME, zone-cut precedence | branch tests | — |
 | UDP/TCP authoritative server | Partial | `DnsServer` with EDNS/legacy sizing | real sockets | overload response and observability hooks |
 | EDNS(0) | Covered | OPT model, payload negotiation, extended RCODE, BADVERS, DO, unknown options | codec + socket scenarios | — |
 | Zone-file loading | Partial | bounded master-file parser with reversible escapes and literal-only IP parsing | normal, escape, multi-error, limit scenarios | injected `$INCLUDE` loader |
