@@ -19,6 +19,7 @@ jobs:
           java-version: "21"
           cache: sbt
       - uses: sbt/setup-sbt@v1
+      - name: Check source formatting
+        run: sbt scalafmtCheckAll
       - name: Compile with fatal warnings
         run: sbt -Dfile.encoding=UTF-8 'set ThisBuild / scalacOptions += "-Werror"' test
-
