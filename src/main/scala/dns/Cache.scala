@@ -7,7 +7,8 @@ trait Ticker:
   def nanos: Long
 
 object Ticker:
-  val system: Ticker = () => System.nanoTime()
+  val system: Ticker = new Ticker:
+    def nanos: Long = System.nanoTime()
 
 /** A thread-safe DNS cache that stores complete positive or negative answers.
   *

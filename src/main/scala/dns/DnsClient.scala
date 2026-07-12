@@ -28,13 +28,6 @@ final class DnsClient(
       if response.flags.truncated then exchangeTcp(request) else Right(response)
     }
 
-object DnsClient:
-  enum Error:
-    case Timeout
-    case Io(cause: java.io.IOException)
-    case Decode(error: DecodeError)
-    case MismatchedResponse
-
   private def exchangeUdp(request: Message): Either[Error, Message] =
     val socket = new DatagramSocket()
     try
@@ -74,3 +67,10 @@ object DnsClient:
         Error.MismatchedResponse
       )
     }
+
+object DnsClient:
+  enum Error:
+    case Timeout
+    case Io(cause: java.io.IOException)
+    case Decode(error: DecodeError)
+    case MismatchedResponse

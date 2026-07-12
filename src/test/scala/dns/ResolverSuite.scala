@@ -5,7 +5,7 @@ class ResolverSuite extends munit.FunSuite:
   private val question = Question(name, RecordType.A)
 
   test("a cache hit avoids upstream I/O and adapts transaction metadata") {
-    val cache = new Cache(() => 0L)
+    val cache = new Cache(new Ticker { def nanos: Long = 0L })
     val stored = Message(1, Flags(response = true), Vector(question),
       Vector(ResourceRecord(name, RecordClass.IN, 60, RecordData.ipv4("192.0.2.1"))))
     cache.put(question, stored)
@@ -22,7 +22,7 @@ class ResolverSuite extends munit.FunSuite:
   }
 
   test("a miss delegates and stores the response") {
-    val cache = new Cache(() => 0L)
+    val cache = new Cache(new Ticker { def nanos: Long = 0L })
     val response = Message(7, Flags(response = true), Vector(question),
       Vector(ResourceRecord(name, RecordClass.IN, 60, RecordData.ipv4("192.0.2.7"))))
     val upstream = new Exchange[[value] =>> Either[DnsClient.Error, value]]:
