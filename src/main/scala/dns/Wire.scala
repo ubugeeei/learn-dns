@@ -43,6 +43,7 @@ enum EncodeError derives CanEqual:
   case SectionCount(section: String, count: Int)
   case TxtChunkTooLong(length: Int)
   case RDataTooLong(recordType: RecordType, length: Long)
+  case FieldOutOfRange(recordType: RecordType, field: String, value: Long, bits: Int)
   case MessageTooLong(estimatedLength: Long, limit: Int)
 
 /** Validated encoder sink for unsigned network-order integers. */

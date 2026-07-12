@@ -40,8 +40,8 @@ operations are separate advanced projects.
 |---|---|---|---|---|
 | Absolute domain names | Partial | octet model with reversible RFC 1035 escapes | examples + properties + zone escape scenario | explicit IDNA boundary |
 | Header/questions/sections | Partial | `Protocol`, bounded decoder and validated encoder | fixtures + round trips + encode limits | opcode-specific message validation |
-| A, AAAA, NS, CNAME, PTR, MX, TXT, SOA, SRV | Partial | typed `RecordData` with RDLENGTH/TXT encode bounds | codec round trip | per-type malformed RDATA tables and chapters |
-| Unknown RR preservation | Partial | `RecordData.Unknown` | round trip indirectly | explicit property and class/type registry chapter |
+| A, AAAA, NS, CNAME, PTR, MX, TXT, SOA, SRV | Partial | typed data with length and unsigned-field encode validation | round trips + fixed-size/malformed bounds | remaining name-bearing malformed tables and chapters |
+| Unknown RR preservation | Partial | lossless type code and bytes | explicit round trip | class/type registry chapter |
 | Name compression decode | Partial | loop, bounds, and 128-hop budget | adversarial fixtures | more multi-hop fixture catalog |
 | Name compression encode | Partial | owner-name suffixes | repeated-name test | compression inside final-packet RDATA |
 | UDP stub exchange | Partial | `DnsClient` with EDNS advertisement | loopback integration | response-source validation and retry policy |

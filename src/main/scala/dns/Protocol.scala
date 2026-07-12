@@ -14,6 +14,8 @@ enum OpCode(val code: Int) derives CanEqual:
   case Update extends OpCode(5)
   case Unknown(override val code: Int) extends OpCode(code)
 
+  require(code >= 0 && code <= 0xf, s"opcode out of four-bit range: $code")
+
 object OpCode:
   def fromInt(code: Int): OpCode =
     code match
@@ -39,6 +41,8 @@ enum ResponseCode(val code: Int) derives CanEqual:
   case NotImplemented extends ResponseCode(4)
   case Refused extends ResponseCode(5)
   case Unknown(override val code: Int) extends ResponseCode(code)
+
+  require(code >= 0 && code <= 0xf, s"response code out of four-bit range: $code")
 
 object ResponseCode:
   def fromInt(code: Int): ResponseCode =
@@ -72,6 +76,8 @@ enum RecordType(val code: Int) derives CanEqual:
   case ANY extends RecordType(255)
   case Unknown(override val code: Int) extends RecordType(code)
 
+  require(code >= 0 && code <= 0xffff, s"record type out of 16-bit range: $code")
+
 object RecordType:
   def fromInt(code: Int): RecordType =
     code match
@@ -97,6 +103,8 @@ enum RecordClass(val code: Int) derives CanEqual:
   case HS extends RecordClass(4)
   case ANY extends RecordClass(255)
   case Unknown(override val code: Int) extends RecordClass(code)
+
+  require(code >= 0 && code <= 0xffff, s"record class out of 16-bit range: $code")
 
 object RecordClass:
   def fromInt(code: Int): RecordClass =

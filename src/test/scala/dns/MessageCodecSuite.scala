@@ -151,5 +151,58 @@ class MessageCodecSuite extends munit.FunSuite:
     )
   }
 
+  test("RDATA-LENGTHS: rejects truncated fixed-size address records") {
+    val cases = Vector(
+      RecordType.A -> Vector.fill(3)(0.toByte),
+      RecordType.AAAA -> Vector.fill(15)(0.toByte)
+    )
+
+    cases.foreach { (kind, data) =>
+      val decoded = MessageCodec.decode(responseRecord(kind, data))
+      assertEquals(
+        decoded,
+        Left(DecodeError.InvalidRData(
+          kind,
+          s"expected ${if kind == RecordType.A then 4 else 16} octets, got ${data.size}"
+        ))
+      )
+    }
+  }
+
+  test("UNKNOWN-RDATA: preserves unassigned type code and bytes exactly") {
+    val kind = RecordType.Unknown(65000)
+    val data = Vector[Byte](0, 1, -1, 42)
+    val message = Message(
+      1,
+      answers = Vector(ResourceRecord(example, RecordClass.IN, 60, RecordData.Unknown(kind, data)))
+    )
+
+    assertEquals(MessageCodec.decode(MessageCodec.encode(message)), Right(message))
+  }
+
+  test("ENCODER-FIELDS: rejects MX, SRV, and SOA integers outside wire ranges") {
+    val invalid = Vector(
+      ResourceRecord(example, RecordClass.IN, 60, RecordData.MX(-1, example)) ->
+        EncodeError.FieldOutOfRange(RecordType.MX, "preference", -1, 16),
+      ResourceRecord(example, RecordClass.IN, 60, RecordData.SRV(0, 0, 65536, example)) ->
+        EncodeError.FieldOutOfRange(RecordType.SRV, "port", 65536, 16),
+      ResourceRecord(
+        example,
+        RecordClass.IN,
+        60,
+        RecordData.SOA(example, example, 0x100000000L, 1, 1, 1, 1)
+      ) -> EncodeError.FieldOutOfRange(RecordType.SOA, "serial", 0x100000000L, 32)
+    )
+
+    invalid.foreach { (record, error) =>
+      assertEquals(MessageCodec.encodeValidated(Message(1, answers = Vector(record))), Left(error))
+    }
+  }
+
+  private def responseRecord(kind: RecordType, data: Vector[Byte]): Array[Byte] =
+    hex("00008000000000010000000000") ++
+      Array[Byte]((kind.code >>> 8).toByte, kind.code.toByte, 0, 1, 0, 0, 0, 0) ++
+      Array[Byte]((data.size >>> 8).toByte, data.size.toByte) ++ data
+
   private def hex(value: String): Array[Byte] =
     value.grouped(2).map(Integer.parseInt(_, 16).toByte).toArray

@@ -98,6 +98,21 @@ object MessageCodec:
 
   private def validateRecord(record: ResourceRecord): Either[EncodeError, Unit] =
     record.data match
+      case RecordData.MX(preference, _) => unsigned(record, "preference", preference, 16)
+      case RecordData.SRV(priority, weight, port, _) =>
+        unsigned(record, "priority", priority, 16)
+          .flatMap(_ => unsigned(record, "weight", weight, 16))
+          .flatMap(_ => unsigned(record, "port", port, 16))
+      case RecordData.SOA(_, _, serial, refresh, retry, expire, minimum) =>
+        Vector(
+          "serial" -> serial,
+          "refresh" -> refresh,
+          "retry" -> retry,
+          "expire" -> expire,
+          "minimum" -> minimum
+        ).iterator.map((field, value) => unsigned(record, field, value, 32)).collectFirst {
+          case Left(error) => Left(error)
+        }.getOrElse(Right(()))
       case RecordData.TXT(chunks) =>
         chunks.find(_.size > 255) match
           case Some(chunk) => Left(EncodeError.TxtChunkTooLong(chunk.size))
@@ -107,6 +122,19 @@ object MessageCodec:
       case data =>
         val length = rdataLength(data)
         Either.cond(length <= 0xffff, (), EncodeError.RDataTooLong(record.recordType, length))
+
+  private def unsigned(
+      record: ResourceRecord,
+      field: String,
+      value: Long,
+      bits: Int
+  ): Either[EncodeError, Unit] =
+    val maximum = if bits == 16 then 0xffffL else 0xffffffffL
+    Either.cond(
+      value >= 0 && value <= maximum,
+      (),
+      EncodeError.FieldOutOfRange(record.recordType, field, value, bits)
+    )
 
   private def rdataLength(data: RecordData): Long =
     data match
