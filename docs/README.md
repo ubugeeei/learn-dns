@@ -118,7 +118,7 @@ answers and distinguish NODATA, NXDOMAIN, delegation, and wildcard synthesis.
 ### Part 4 — An authoritative server
 
 32. Zones are not domain names
-33. Load and validate zone data
+33. [Load and validate zone data](04-authoritative/01-zone-files.md)
 34. Exact RRset answers
 35. NODATA and NXDOMAIN
 36. Delegations and glue
