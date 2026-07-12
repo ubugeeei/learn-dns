@@ -38,9 +38,10 @@ class IterativeResolverSuite extends munit.FunSuite:
     assertEquals(scenario.visited, Vector(root, childServer))
   }
 
-  test("ITERATIVE-MISSING-GLUE: refuses to trust out-of-bailiwick glue") {
+  test("ITERATIVE-MISSING-GLUE: resolves an out-of-bailiwick name-server address") {
     val delegation = name("example.test.")
     val externalServer = name("ns.provider.invalid.")
+    val externalAddress = socket("192.0.2.70")
     val response = Message(
       id = 1,
       flags = Flags(response = true),
@@ -48,12 +49,28 @@ class IterativeResolverSuite extends munit.FunSuite:
       authorities = Vector(ns(delegation, externalServer)),
       additionals = Vector(a(externalServer, "192.0.2.66"))
     )
-    val scenario = Scenario(root -> response)
+    val scenario = Scenario(
+      root -> response,
+      root -> answer(externalServer, "192.0.2.70"),
+      externalAddress -> answer(question.name, "203.0.113.9")
+    )
 
     assertEquals(
-      new IterativeResolver(Vector(root), scenario).resolve(question),
-      Left(IterativeResolver.Error.MissingGlue(delegation, Vector(externalServer)))
+      new IterativeResolver(Vector(root), scenario).resolve(question).toOption
+        .flatMap(_.answers.headOption),
+      Some(a(question.name, "203.0.113.9"))
     )
+    assertEquals(scenario.visited, Vector(root, root, externalAddress))
+  }
+
+  test("ITERATIVE-RETRY: tries the next server after a timeout") {
+    val unavailable = socket("192.0.2.2")
+    val scenario = Scenario(root -> answer(question.name, "203.0.113.10"))
+
+    val result = new IterativeResolver(Vector(unavailable, root), scenario).resolve(question)
+
+    assert(result.isRight)
+    assertEquals(scenario.visited, Vector(unavailable, root))
   }
 
   test("ITERATIVE-CNAME: restarts from roots and preserves the alias chain") {

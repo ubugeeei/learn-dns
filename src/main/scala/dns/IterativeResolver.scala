@@ -22,11 +22,9 @@ object NameServerClient:
  * The state machine implements the high-level algorithm in
  * [[https://www.rfc-editor.org/rfc/rfc1034#section-5.3.3 RFC 1034 §5.3.3]]. It accepts only
  * in-bailiwick A/AAAA glue for a referral, follows CNAME aliases, detects repeated aliases and
- * delegations, and applies global query limits.
- *
- * This milestone deliberately reports [[IterativeResolver.Error.MissingGlue]] instead of
- * recursively resolving out-of-bailiwick name-server addresses. That behavior is explicit rather
- * than silently trusting unrelated additional records.
+ * delegations, and applies global query limits. When a referral legitimately omits glue, the
+ * resolver performs a subsidiary address lookup while retaining the same budgets and dependency
+ * loop detector.
  */
 final class IterativeResolver(
     roots: Vector[InetSocketAddress],
@@ -41,19 +39,24 @@ final class IterativeResolver(
   def resolve(question: Question): Either[Error, Message] =
     if question.recordClass != RecordClass.IN then
       Left(Error.UnsupportedClass(question.recordClass))
-    else walk(State(question, roots, Vector.empty, Set(question.name), Set.empty, 0, 0))
+    else resolveQuestion(question, new Budget(config), Set.empty)
 
-  private def walk(state: State): Either[Error, Message] =
-    if state.queries >= config.maxQueries then Left(Error.QueryBudgetExceeded(config.maxQueries))
-    else if state.referrals >= config.maxReferrals then
-      Left(Error.ReferralBudgetExceeded(config.maxReferrals))
-    else
-      queryAny(state.servers, state.question).flatMap { response =>
-        val nextState = state.copy(queries = state.queries + 1)
-        interpret(nextState, response)
-      }
+  private def resolveQuestion(
+      question: Question,
+      budget: Budget,
+      resolvingNameServers: Set[DomainName]
+  ): Either[Error, Message] = walk(
+    State(question, roots, Vector.empty, Set(question.name), Set.empty, resolvingNameServers),
+    budget
+  )
 
-  private def interpret(state: State, response: Message): Either[Error, Message] =
+  private def walk(state: State, budget: Budget): Either[Error, Message] = queryAny(
+    state.servers,
+    state.question,
+    budget
+  ).flatMap(response => interpret(state, response, budget))
+
+  private def interpret(state: State, response: Message, budget: Budget): Either[Error, Message] =
     response.flags.responseCode match
       case ResponseCode.NameError => Right(withAliases(response, state.aliases))
       case ResponseCode.NoError   =>
@@ -63,47 +66,96 @@ final class IterativeResolver(
         if exact.nonEmpty then Right(withAliases(response, state.aliases))
         else
           cnameTarget(response, state.question.name) match
-            case Some((record, target)) => followAlias(state, record, target)
-            case None                   => followReferral(state, response)
+            case Some((record, target)) => followAlias(state, record, target, budget)
+            case None                   => followReferral(state, response, budget)
       case code => Left(Error.ServerResponse(code))
 
   private def followAlias(
       state: State,
       record: ResourceRecord,
-      target: DomainName
+      target: DomainName,
+      budget: Budget
   ): Either[Error, Message] =
     if state.aliases.size >= config.maxCnameDepth then
       Left(Error.CnameBudgetExceeded(config.maxCnameDepth))
     else if state.visitedNames.contains(target) then Left(Error.CnameLoop(target))
     else
-      walk(state.copy(
-        question = state.question.copy(name = target),
-        servers = roots,
-        aliases = state.aliases :+ record,
-        visitedNames = state.visitedNames + target
-      ))
+      walk(
+        state.copy(
+          question = state.question.copy(name = target),
+          servers = roots,
+          aliases = state.aliases :+ record,
+          visitedNames = state.visitedNames + target
+        ),
+        budget
+      )
 
-  private def followReferral(state: State, response: Message): Either[Error, Message] =
+  private def followReferral(
+      state: State,
+      response: Message,
+      budget: Budget
+  ): Either[Error, Message] =
     closestReferral(state.question.name, response.authorities) match
       case None                            => Right(withAliases(response, state.aliases))
       case Some((delegation, nameServers)) =>
         if state.visitedDelegations.contains(delegation) then Left(Error.ReferralLoop(delegation))
         else
-          val servers = glueServers(delegation, nameServers, response.additionals)
-          if servers.isEmpty then Left(Error.MissingGlue(delegation, nameServers))
-          else
-            walk(state.copy(
-              servers = servers,
-              visitedDelegations = state.visitedDelegations + delegation,
-              referrals = state.referrals + 1
-            ))
+          for
+            _ <- budget.consumeReferral()
+            glue = glueServers(delegation, nameServers, response.additionals)
+            servers <-
+              if glue.nonEmpty then Right(glue)
+              else resolveNameServerAddresses(nameServers, state, budget)
+            result <- walk(
+              state.copy(
+                servers = servers,
+                visitedDelegations = state.visitedDelegations + delegation
+              ),
+              budget
+            )
+          yield result
+
+  private def resolveNameServerAddresses(
+      nameServers: Vector[DomainName],
+      state: State,
+      budget: Budget
+  ): Either[Error, Vector[InetSocketAddress]] = nameServers.foldLeft(
+    Right(Vector.empty): Either[Error, Vector[InetSocketAddress]]
+  ) { (accumulated, nameServer) =>
+    accumulated.flatMap { addresses =>
+      if state.resolvingNameServers.contains(nameServer) then
+        Left(Error.NameServerDependencyLoop(nameServer))
+      else
+        resolveQuestion(
+          Question(nameServer, RecordType.A),
+          budget,
+          state.resolvingNameServers + nameServer
+        ).map { response =>
+          val resolved = response.answers.collect {
+            case ResourceRecord(`nameServer`, RecordClass.IN, _, RecordData.A(address)) =>
+              new InetSocketAddress(address, 53)
+          }
+          addresses ++ resolved
+        }
+    }
+  }.flatMap(addresses =>
+    Either.cond(addresses.nonEmpty, addresses.distinct, Error.MissingGlue(nameServers))
+  )
 
   private def queryAny(
       servers: Vector[InetSocketAddress],
-      question: Question
-  ): Either[Error, Message] = servers.iterator.map(server => client.query(server, question))
-    .collectFirst { case Right(response) => Right(response) }
-    .getOrElse(Left(Error.AllServersFailed(servers)))
+      question: Question,
+      budget: Budget
+  ): Either[Error, Message] =
+    val attempts = servers.iterator
+    var response: Option[Message] = None
+    var failure: Option[Error] = None
+    while attempts.hasNext && response.isEmpty && failure.isEmpty do
+      budget.consumeQuery() match
+        case Left(error) => failure = Some(error)
+        case Right(_)    =>
+          client.query(attempts.next(), question).foreach(value => response = Some(value))
+    response.toRight(failure.getOrElse(Error.AllServersFailed(servers)))
 
   private def closestReferral(
       questionName: DomainName,
@@ -150,7 +202,8 @@ object IterativeResolver:
     case UnsupportedClass(recordClass: RecordClass)
     case AllServersFailed(servers: Vector[InetSocketAddress])
     case ServerResponse(code: ResponseCode)
-    case MissingGlue(delegation: DomainName, nameServers: Vector[DomainName])
+    case MissingGlue(nameServers: Vector[DomainName])
+    case NameServerDependencyLoop(name: DomainName)
     case ReferralLoop(delegation: DomainName)
     case CnameLoop(name: DomainName)
     case QueryBudgetExceeded(limit: Int)
@@ -163,6 +216,22 @@ object IterativeResolver:
       aliases: Vector[ResourceRecord],
       visitedNames: Set[DomainName],
       visitedDelegations: Set[DomainName],
-      queries: Int,
-      referrals: Int
+      resolvingNameServers: Set[DomainName]
   )
+
+  private final class Budget(config: Config):
+    private var queries = 0
+    private var referrals = 0
+
+    def consumeQuery(): Either[Error, Unit] =
+      if queries >= config.maxQueries then Left(Error.QueryBudgetExceeded(config.maxQueries))
+      else
+        queries += 1
+        Right(())
+
+    def consumeReferral(): Either[Error, Unit] =
+      if referrals >= config.maxReferrals then
+        Left(Error.ReferralBudgetExceeded(config.maxReferrals))
+      else
+        referrals += 1
+        Right(())

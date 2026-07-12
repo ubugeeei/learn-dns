@@ -117,7 +117,8 @@ flowchart TD
   cname -->|No| referral{"Usable referral found?"}
   referral -->|No| done
   referral -->|Yes| glue{"Safe glue found?"}
-  glue -->|No| missing["Return MissingGlue"]
+  glue -->|No| missing["Resolve the NS name from roots"]
+  missing --> next
   glue -->|Yes| next["Use referred servers"]
   next --> start
 ```
@@ -222,7 +223,7 @@ Other scenarios state security properties in their names:
 - `ITERATIVE-CNAME` preserves the alias chain;
 - `ITERATIVE-CNAME-LOOP` terminates repeated aliases.
 
-## Current limitation: missing glue
+## Resolve a name server when glue is missing
 
 Some valid delegations use name servers outside the delegated domain:
 
@@ -230,14 +231,18 @@ Some valid delegations use name servers outside the delegated domain:
 example.test. NS ns.provider.invalid.
 ```
 
-The parent cannot authoritatively provide glue for `provider.invalid.`. A mature
-resolver launches a subsidiary resolution for that NS name, while retaining
-budgets and avoiding dependency cycles. The current implementation returns the
-typed error `MissingGlue` instead. This is incomplete but safe and observable.
+The parent cannot authoritatively provide glue for `provider.invalid.`. The
+resolver therefore launches a subsidiary A lookup for that NS name from the
+roots. This subsidiary lookup shares the original query and referral budgets;
+starting new counters would let nested referrals bypass the limits.
 
-The next resolver milestone will add subsidiary NS-address resolution. Its tests
-must include two delegations depending on each other, so the new recursion cannot
-turn into an unbounded loop.
+`resolvingNameServers` records every NS name currently being resolved. If two
+delegations depend on one another, the resolver returns
+`NameServerDependencyLoop` rather than recursing forever. When the subsidiary
+lookup produces no usable address, it returns the typed `MissingGlue` error.
+
+The current subsidiary lookup asks for A records. A later milestone will query
+AAAA as well and combine both address families according to transport policy.
 
 ## Exercises
 
@@ -264,4 +269,3 @@ You should now be able to explain:
 - [RFC 1034 §5.3.5 — Resolver failures](https://www.rfc-editor.org/rfc/rfc1034#section-5.3.5)
 - [RFC 2181 §5 — RRsets](https://www.rfc-editor.org/rfc/rfc2181#section-5)
 - [RFC  bailiwick clarification, RFC 8499 §5](https://www.rfc-editor.org/rfc/rfc8499#section-5)
-
