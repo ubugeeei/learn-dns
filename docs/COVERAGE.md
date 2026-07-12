@@ -48,7 +48,7 @@ operations are separate advanced projects.
 | TCP fallback | Partial | TC retry and framing | loopback integration | persistent connection reuse and multiple outstanding queries |
 | Positive cache | Partial | monotonic expiry | boundary tests | RRset-aware replacement and capacity eviction |
 | Negative cache | Partial | SOA TTL/MINIMUM | NXDOMAIN test | NODATA cache key semantics and stale policy |
-| Iterative resolver | Partial | referrals, CNAME, retries, subsidiary NS lookup, shared budgets | packet scenarios | cache integration and IPv6 subsidiary lookup |
+| Iterative resolver | Partial | referrals, CNAME, retries, subsidiary NS lookup, shared budgets, cached message service | packet and request-policy scenarios | IPv6 subsidiary lookup |
 | Bailiwick validation | Partial | accepts only in-zone glue | malicious additional scenario | sibling-zone cases |
 | Authoritative exact answers | Partial | `Zone` | examples | multi-question policy documentation |
 | Delegations and glue | Partial | closest NS cut | referral test | glue bailiwick validation at construction |
