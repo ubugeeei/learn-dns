@@ -128,6 +128,61 @@ class ZoneSuite extends munit.FunSuite:
     )
   }
 
+  test("WILDCARD-CNAME: synthesizes the queried owner while preserving the target") {
+    val target = DomainName.unsafe("target.example.net.")
+    val wildcard = ResourceRecord(
+      DomainName.unsafe("*.example.com."),
+      RecordClass.IN,
+      60,
+      RecordData.CName(target)
+    )
+    val wildcardZone = Zone.create(origin, soa, Vector(wildcard)).toOption.get
+    val requested = DomainName.unsafe("alias.example.com.")
+
+    val response = wildcardZone.answer(query(requested, RecordType.A))
+
+    assertEquals(response.answers, Vector(wildcard.copy(name = requested)))
+  }
+
+  test("WILDCARD-BLOCKING: an existing owner without the type produces NODATA") {
+    val wildcard = ResourceRecord(
+      DomainName.unsafe("*.example.com."),
+      RecordClass.IN,
+      60,
+      RecordData.ipv4("192.0.2.9")
+    )
+    val existing = ResourceRecord(host, RecordClass.IN, 60, RecordData.ipv6("2001:db8::1"))
+    val wildcardZone = Zone.create(origin, soa, Vector(wildcard, existing)).toOption.get
+
+    val response = wildcardZone.answer(query(host, RecordType.A))
+
+    assertEquals(response.flags.responseCode, ResponseCode.NoError)
+    assertEquals(response.answers, Vector.empty)
+    assertEquals(response.authorities, Vector(soa))
+  }
+
+  test("DELEGATION-CUT: referral takes precedence over parent wildcard data") {
+    val child = DomainName.unsafe("child.example.com.")
+    val server = DomainName.unsafe("ns.child.example.com.")
+    val delegation = ResourceRecord(child, RecordClass.IN, 300, RecordData.NS(server))
+    val glue = ResourceRecord(server, RecordClass.IN, 300, RecordData.ipv4("192.0.2.53"))
+    val wildcard = ResourceRecord(
+      DomainName.unsafe("*.example.com."),
+      RecordClass.IN,
+      60,
+      RecordData.ipv4("192.0.2.9")
+    )
+    val delegated = Zone.create(origin, soa, Vector(delegation, glue, wildcard)).toOption.get
+
+    val response = delegated
+      .answer(query(DomainName.unsafe("missing.child.example.com."), RecordType.A))
+
+    assert(!response.flags.authoritative)
+    assertEquals(response.answers, Vector.empty)
+    assertEquals(response.authorities, Vector(delegation))
+    assertEquals(response.additionals, Vector(glue))
+  }
+
   private def query(name: DomainName, kind: RecordType): Message = Message(
     42,
     questions = Vector(Question(name, kind))
