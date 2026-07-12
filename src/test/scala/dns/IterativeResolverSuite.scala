@@ -19,7 +19,10 @@ class IterativeResolverSuite extends munit.FunSuite:
 
     val result = new IterativeResolver(Vector(root), scenario).resolve(question)
 
-    assertEquals(result.toOption.flatMap(_.answers.headOption), Some(a(question.name, "203.0.113.7")))
+    assertEquals(
+      result.toOption.flatMap(_.answers.headOption),
+      Some(a(question.name, "203.0.113.7"))
+    )
     assertEquals(scenario.visited, Vector(root, childServer))
   }
 
@@ -27,16 +30,9 @@ class IterativeResolverSuite extends munit.FunSuite:
     val delegation = name("example.test.")
     val serverName = name("ns.example.test.")
     val maliciousName = name("ns.attacker.invalid.")
-    val response = referral(delegation, serverName, "192.0.2.53").copy(
-      additionals = Vector(
-        a(maliciousName, "192.0.2.66"),
-        a(serverName, "192.0.2.53")
-      )
-    )
-    val scenario = Scenario(
-      root -> response,
-      childServer -> answer(question.name, "203.0.113.7")
-    )
+    val response = referral(delegation, serverName, "192.0.2.53")
+      .copy(additionals = Vector(a(maliciousName, "192.0.2.66"), a(serverName, "192.0.2.53")))
+    val scenario = Scenario(root -> response, childServer -> answer(question.name, "203.0.113.7"))
 
     assert(new IterativeResolver(Vector(root), scenario).resolve(question).isRight)
     assertEquals(scenario.visited, Vector(root, childServer))
@@ -91,9 +87,8 @@ class IterativeResolverSuite extends munit.FunSuite:
     )
   }
 
-  private final class Scenario private (
-      private var responses: List[(InetSocketAddress, Message)]
-  ) extends NameServerClient:
+  private final class Scenario private (private var responses: List[(InetSocketAddress, Message)])
+      extends NameServerClient:
     private var visits = Vector.empty[InetSocketAddress]
     def visited: Vector[InetSocketAddress] = visits
 
@@ -109,8 +104,7 @@ class IterativeResolverSuite extends munit.FunSuite:
         case _ => Left(DnsClient.Error.Timeout)
 
   private object Scenario:
-    def apply(responses: (InetSocketAddress, Message)*): Scenario =
-      new Scenario(responses.toList)
+    def apply(responses: (InetSocketAddress, Message)*): Scenario = new Scenario(responses.toList)
 
   private def referral(
       delegation: DomainName,
@@ -138,12 +132,19 @@ class IterativeResolverSuite extends munit.FunSuite:
     answers = Vector(ResourceRecord(owner, RecordClass.IN, 60, RecordData.CName(target)))
   )
 
-  private def ns(owner: DomainName, target: DomainName): ResourceRecord =
-    ResourceRecord(owner, RecordClass.IN, 300, RecordData.NS(target))
+  private def ns(owner: DomainName, target: DomainName): ResourceRecord = ResourceRecord(
+    owner,
+    RecordClass.IN,
+    300,
+    RecordData.NS(target)
+  )
 
-  private def a(owner: DomainName, address: String): ResourceRecord =
-    ResourceRecord(owner, RecordClass.IN, 60, RecordData.ipv4(address))
+  private def a(owner: DomainName, address: String): ResourceRecord = ResourceRecord(
+    owner,
+    RecordClass.IN,
+    60,
+    RecordData.ipv4(address)
+  )
 
   private def name(value: String): DomainName = DomainName.unsafe(value)
-  private def socket(address: String): InetSocketAddress =
-    new InetSocketAddress(address, 53)
+  private def socket(address: String): InetSocketAddress = new InetSocketAddress(address, 53)
