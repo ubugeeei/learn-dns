@@ -120,5 +120,36 @@ class MessageCodecSuite extends munit.FunSuite:
     )
   }
 
+  test("ENCODER-BOUNDS: rejects TXT chunks that cannot fit their length octet") {
+    val message = Message(
+      1,
+      answers = Vector(ResourceRecord(
+        example,
+        RecordClass.IN,
+        60,
+        RecordData.TXT(Vector(Vector.fill(256)(0.toByte)))
+      ))
+    )
+
+    assertEquals(MessageCodec.encodeValidated(message), Left(EncodeError.TxtChunkTooLong(256)))
+  }
+
+  test("ENCODER-BOUNDS: rejects unknown RDATA beyond unsigned 16-bit RDLENGTH") {
+    val message = Message(
+      1,
+      answers = Vector(ResourceRecord(
+        example,
+        RecordClass.IN,
+        60,
+        RecordData.Unknown(RecordType.Unknown(65000), Vector.fill(65536)(0.toByte))
+      ))
+    )
+
+    assertEquals(
+      MessageCodec.encodeValidated(message),
+      Left(EncodeError.RDataTooLong(RecordType.Unknown(65000), 65536))
+    )
+  }
+
   private def hex(value: String): Array[Byte] =
     value.grouped(2).map(Integer.parseInt(_, 16).toByte).toArray

@@ -51,7 +51,10 @@ final class DnsClient(
     val socket = new DatagramSocket()
     try
       socket.setSoTimeout(timeout.toMillis.toInt)
-      val bytes = MessageCodec.encode(request)
+      val bytes =
+        MessageCodec.encodeValidated(request).left.map(Error.Encode.apply) match
+          case Left(error)  => return Left(error)
+          case Right(value) => value
       socket.send(new DatagramPacket(bytes, bytes.length, server))
       val buffer = Array.ofDim[Byte](udpPayloadSize)
       val packet = new DatagramPacket(buffer, buffer.length)
@@ -67,7 +70,10 @@ final class DnsClient(
     try
       socket.connect(server, timeout.toMillis.toInt)
       socket.setSoTimeout(timeout.toMillis.toInt)
-      val bytes = MessageCodec.encode(request)
+      val bytes =
+        MessageCodec.encodeValidated(request).left.map(Error.Encode.apply) match
+          case Left(error)  => return Left(error)
+          case Right(value) => value
       val output = new DataOutputStream(socket.getOutputStream)
       output.writeShort(bytes.length); output.write(bytes); output.flush()
       val input = new DataInputStream(socket.getInputStream)
@@ -93,4 +99,5 @@ object DnsClient:
     case Timeout
     case Io(cause: java.io.IOException)
     case Decode(error: DecodeError)
+    case Encode(error: EncodeError)
     case MismatchedResponse

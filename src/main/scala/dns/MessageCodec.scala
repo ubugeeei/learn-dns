@@ -10,6 +10,7 @@ import java.net.{ Inet4Address, Inet6Address, InetAddress }
  */
 object MessageCodec:
   val DefaultSectionLimit = 4096
+  val MaxWireMessageBytes = 65535
 
   def decode(
       bytes: Array[Byte],
@@ -34,7 +35,23 @@ object MessageCodec:
       _ <- Either.cond(cursor.remaining == 0, (), DecodeError.TrailingBytes(cursor.remaining))
     yield Message(id, decodeFlags(bits), questions, answers, authorities, additionals)
 
-  def encode(message: Message): Array[Byte] =
+  /** Encodes a message after proving all length/count fields fit on the wire. */
+  def encodeValidated(message: Message): Either[EncodeError, Array[Byte]] = validateForEncoding(
+    message
+  ).map(_ => encodeUnchecked(message))
+
+  /**
+   * Encodes an already trusted message or throws when its model exceeds wire limits.
+   *
+   * Network boundaries should prefer [[encodeValidated]]. This convenience API keeps packet
+   * fixtures concise while never silently wrapping a length field.
+   */
+  def encode(message: Message): Array[Byte] = encodeValidated(message).fold(
+    error => throw new IllegalArgumentException(s"message cannot be encoded: $error"),
+    identity
+  )
+
+  private def encodeUnchecked(message: Message): Array[Byte] =
     val writer = new WireWriter()
     val names = new NameCodec.Encoder(writer)
     writer.u16(message.id)
@@ -52,6 +69,60 @@ object MessageCodec:
     (message.answers ++ message.authorities ++ message.additionals)
       .foreach(writeRecord(writer, names, _))
     writer.result()
+
+  private def validateForEncoding(message: Message): Either[EncodeError, Unit] =
+    val sections = Vector(
+      "question" -> message.questions.size,
+      "answer" -> message.answers.size,
+      "authority" -> message.authorities.size,
+      "additional" -> message.additionals.size
+    )
+    sections.find(_._2 > 0xffff) match
+      case Some((name, count)) => Left(EncodeError.SectionCount(name, count))
+      case None                =>
+        val records = message.answers ++ message.authorities ++ message.additionals
+        records.iterator.map(validateRecord).collectFirst { case Left(error) => Left(error) }
+          .getOrElse {
+            val questionBytes =
+              message.questions.iterator.map(question => question.name.wireLength.toLong + 4).sum
+            val recordBytes =
+              records.iterator
+                .map(record => record.name.wireLength.toLong + 10 + rdataLength(record.data)).sum
+            val estimated = 12L + questionBytes + recordBytes
+            Either.cond(
+              estimated <= MaxWireMessageBytes,
+              (),
+              EncodeError.MessageTooLong(estimated, MaxWireMessageBytes)
+            )
+          }
+
+  private def validateRecord(record: ResourceRecord): Either[EncodeError, Unit] =
+    record.data match
+      case RecordData.TXT(chunks) =>
+        chunks.find(_.size > 255) match
+          case Some(chunk) => Left(EncodeError.TxtChunkTooLong(chunk.size))
+          case None        =>
+            val length = rdataLength(record.data)
+            Either.cond(length <= 0xffff, (), EncodeError.RDataTooLong(record.recordType, length))
+      case data =>
+        val length = rdataLength(data)
+        Either.cond(length <= 0xffff, (), EncodeError.RDataTooLong(record.recordType, length))
+
+  private def rdataLength(data: RecordData): Long =
+    data match
+      case _: RecordData.A            => 4
+      case _: RecordData.AAAA         => 16
+      case RecordData.NS(name)        => name.wireLength
+      case RecordData.CName(name)     => name.wireLength
+      case RecordData.Ptr(name)       => name.wireLength
+      case RecordData.MX(_, exchange) => 2L + exchange.wireLength
+      case RecordData.TXT(chunks)     => chunks.iterator.map(_.size.toLong + 1).sum
+      case RecordData.SOA(primary, mailbox, _, _, _, _, _) =>
+        primary.wireLength.toLong + mailbox.wireLength + 20
+      case RecordData.SRV(_, _, _, target) => 6L + target.wireLength
+      case RecordData.OPT(options)         =>
+        options.iterator.map(option => option.data.size.toLong + 4).sum
+      case RecordData.Unknown(_, bytes) => bytes.size.toLong
 
   private def decodeQuestion(cursor: WireCursor): Either[DecodeError, Question] =
     for name <- NameCodec.decode(cursor); kind <- cursor.u16(); cls <- cursor.u16()

@@ -38,6 +38,13 @@ enum DecodeError derives CanEqual:
   case CountLimit(section: String, count: Int, limit: Int)
   case TrailingBytes(count: Int)
 
+/** Why a typed message cannot be represented by the bounded DNS wire format. */
+enum EncodeError derives CanEqual:
+  case SectionCount(section: String, count: Int)
+  case TxtChunkTooLong(length: Int)
+  case RDataTooLong(recordType: RecordType, length: Long)
+  case MessageTooLong(estimatedLength: Long, limit: Int)
+
 /** Validated encoder sink for unsigned network-order integers. */
 private[dns] final class WireWriter:
   private val output = ByteArrayOutputStream()

@@ -39,8 +39,8 @@ operations are separate advanced projects.
 | Area | Status | Implementation | Tests | Missing before Covered |
 |---|---|---|---|---|
 | Absolute domain names | Partial | `DomainName` | examples + properties | escaped presentation form and IDNA boundary |
-| Header/questions/sections | Partial | `Protocol`, `MessageCodec` | fixtures + round trips | opcode-specific message validation |
-| A, AAAA, NS, CNAME, PTR, MX, TXT, SOA, SRV | Partial | typed `RecordData` | codec round trip | per-type malformed RDATA tables and chapters |
+| Header/questions/sections | Partial | `Protocol`, bounded decoder and validated encoder | fixtures + round trips + encode limits | opcode-specific message validation |
+| A, AAAA, NS, CNAME, PTR, MX, TXT, SOA, SRV | Partial | typed `RecordData` with RDLENGTH/TXT encode bounds | codec round trip | per-type malformed RDATA tables and chapters |
 | Unknown RR preservation | Partial | `RecordData.Unknown` | round trip indirectly | explicit property and class/type registry chapter |
 | Name compression decode | Partial | loop, bounds, and 128-hop budget | adversarial fixtures | more multi-hop fixture catalog |
 | Name compression encode | Partial | owner-name suffixes | repeated-name test | compression inside final-packet RDATA |

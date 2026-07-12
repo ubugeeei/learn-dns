@@ -104,7 +104,7 @@ final class DnsServer private (
         val payload = input.readNBytes(length)
         if payload.length != length then continue = false
         else
-          val encoded = MessageCodec.encode(process(payload).message)
+          val encoded = encodeResponse(process(payload).message)
           output.writeShort(encoded.length)
           output.write(encoded)
           output.flush()
@@ -177,8 +177,8 @@ final class DnsServer private (
 
   private def truncateForUdp(message: Message, limit: Int): Array[Byte] =
     var candidate = message
-    var encoded = MessageCodec.encode(candidate)
-    while encoded.length > limit &&
+    var encoded = MessageCodec.encodeValidated(candidate)
+    while (encoded.isLeft || encoded.exists(_.length > limit)) &&
       (candidate.additionals.nonEmpty || candidate.authorities.nonEmpty ||
         candidate.answers.nonEmpty)
     do
@@ -188,12 +188,23 @@ final class DnsServer private (
         else if candidate.authorities.nonEmpty then
           candidate.copy(authorities = candidate.authorities.dropRight(1))
         else candidate.copy(answers = candidate.answers.dropRight(1))
-      encoded = MessageCodec.encode(candidate.copy(flags = candidate.flags.copy(truncated = true)))
-    if encoded.length > limit then
-      MessageCodec.encode(
-        candidate.copy(flags = candidate.flags.copy(truncated = true), questions = Vector.empty)
-      )
-    else encoded
+      candidate = candidate.copy(flags = candidate.flags.copy(truncated = true))
+      encoded = MessageCodec.encodeValidated(candidate)
+    encoded match
+      case Right(bytes) if bytes.length <= limit => bytes
+      case _                                     =>
+        encodeResponse(
+          candidate.copy(flags = candidate.flags.copy(truncated = true), questions = Vector.empty)
+        )
+
+  private def encodeResponse(message: Message): Array[Byte] = MessageCodec.encodeValidated(message)
+    .getOrElse {
+      MessageCodec.encode(Message(
+        id = message.id,
+        flags = Flags(response = true, responseCode = ResponseCode.ServerFailure),
+        questions = message.questions
+      ))
+    }
 
 object DnsServer:
   private final case class Processed(message: Message, udpLimit: Int)
