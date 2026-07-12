@@ -25,8 +25,22 @@ final class DnsClient(
 
   require(udpPayloadSize >= 512 && udpPayloadSize <= 65535)
 
-  def query(name: DomainName, recordType: RecordType): Either[Error, Message] =
-    val request = Message(random.nextInt(0x10000), questions = Vector(Question(name, recordType)))
+  /**
+   * Sends one question and validates the transaction ID and echoed question.
+   *
+   * `recursionDesired` is `true` for normal stub resolution and `false` when this transport is used
+   * by an iterative resolver querying authoritative servers directly.
+   */
+  def query(
+      name: DomainName,
+      recordType: RecordType,
+      recursionDesired: Boolean = true
+  ): Either[Error, Message] =
+    val request = Message(
+      random.nextInt(0x10000),
+      flags = Flags(recursionDesired = recursionDesired),
+      questions = Vector(Question(name, recordType))
+    )
     exchangeUdp(request).flatMap { response =>
       if response.flags.truncated then exchangeTcp(request) else Right(response)
     }
