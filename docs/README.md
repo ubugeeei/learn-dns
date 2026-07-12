@@ -125,7 +125,7 @@ answers and distinguish NODATA, NXDOMAIN, delegation, and wildcard synthesis.
 37. Wildcards
 38. UDP and TCP listeners
 39. Truncation and EDNS payload sizes
-40. Integration testing with `dig`
+40. [Run and query the authoritative server](04-authoritative/02-run-the-server.md)
 
 ### Part 5 — Beyond the small implementation
 
