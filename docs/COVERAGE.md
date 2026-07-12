@@ -55,7 +55,7 @@ operations are separate advanced projects.
 | Wildcards | Partial | closest-encloser synthesis | example | empty non-terminal and wildcard CNAME tables |
 | UDP/TCP authoritative server | Partial | `DnsServer` with EDNS/legacy sizing | real sockets | overload response and observability hooks |
 | EDNS(0) | Covered | OPT model, payload negotiation, extended RCODE, BADVERS, DO, unknown options | codec + socket scenarios | — |
-| Zone-file loading | Partial | bounded master-file parser with reversible name/TXT escapes | normal, escape, multi-error, limit scenarios | injected `$INCLUDE` loader and strict address lexer |
+| Zone-file loading | Partial | bounded master-file parser with reversible escapes and literal-only IP parsing | normal, escape, multi-error, limit scenarios | injected `$INCLUDE` loader |
 | Query/server CLI | Partial | query, authoritative, and recursive entry points with stable text output | parser, loader, rendering tests | JSON output and process-level integration |
 | Fuzzing | Partial | arbitrary bounded ScalaCheck bytes | totality property | coverage-guided corpus and CI job |
 

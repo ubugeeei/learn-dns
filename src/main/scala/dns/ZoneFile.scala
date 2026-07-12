@@ -215,10 +215,10 @@ object ZoneFile:
     total.filter(_ <= 0xffffffffL).filter(_ => complete)
       .toRight(Diagnostic(line, s"invalid TTL: $value"))
 
-  private def address4(value: String, line: Int): Either[Diagnostic, RecordData] = scala.util
-    .Try(RecordData.ipv4(value)).toEither.left
+  private def address4(value: String, line: Int): Either[Diagnostic, RecordData] = IpAddress
+    .ipv4(value).map(RecordData.A.apply).left
     .map(_ => Diagnostic(line, s"invalid IPv4 address: $value"))
 
-  private def address6(value: String, line: Int): Either[Diagnostic, RecordData] = scala.util
-    .Try(RecordData.ipv6(value)).toEither.left
+  private def address6(value: String, line: Int): Either[Diagnostic, RecordData] = IpAddress
+    .ipv6(value).map(RecordData.AAAA.apply).left
     .map(_ => Diagnostic(line, s"invalid IPv6 address: $value"))

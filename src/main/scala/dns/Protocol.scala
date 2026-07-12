@@ -1,6 +1,6 @@
 package dns
 
-import java.net.{ Inet4Address, Inet6Address, InetAddress }
+import java.net.{ Inet4Address, Inet6Address }
 
 /**
  * DNS operation codes from
@@ -172,10 +172,12 @@ final case class EdnsOption(code: Int, data: Vector[Byte]) derives CanEqual:
   require(data.size <= 0xffff, s"EDNS option data is too large: ${data.size}")
 
 object RecordData:
-  def ipv4(value: String): RecordData.A = A(InetAddress.getByName(value).asInstanceOf[Inet4Address])
+  def ipv4(value: String): RecordData.A = A(
+    IpAddress.ipv4(value).fold(error => throw IllegalArgumentException(error.toString), identity)
+  )
 
   def ipv6(value: String): RecordData.AAAA = AAAA(
-    InetAddress.getByName(value).asInstanceOf[Inet6Address]
+    IpAddress.ipv6(value).fold(error => throw IllegalArgumentException(error.toString), identity)
   )
 
 /**
