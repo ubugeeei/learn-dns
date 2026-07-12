@@ -4,7 +4,8 @@ class ZoneFileSuite extends munit.FunSuite:
   private val origin = DomainName.unsafe("example.test.")
 
   test("MASTER-FILE: loads directives, relative names, omitted owners, and common records") {
-    val input = """
+    val input =
+      """
       |$ORIGIN example.test.
       |$TTL 1h
       |@ IN SOA ns1 hostmaster (
@@ -34,12 +35,15 @@ class ZoneFileSuite extends munit.FunSuite:
     )
     assertEquals(
       answer(zone, "message.example.test.", RecordType.TXT).answers.map(_.data),
-      Vector(RecordData.TXT(Vector("hello world".getBytes.toVector, "second chunk".getBytes.toVector)))
+      Vector(
+        RecordData.TXT(Vector("hello world".getBytes.toVector, "second chunk".getBytes.toVector))
+      )
     )
   }
 
   test("MASTER-FILE-ESCAPE: decodes decimal and escaped punctuation in quoted TXT") {
-    val input = minimumZone + """
+    val input =
+      minimumZone + """
       |escaped TXT "semi\;colon" "A\066C"
       |""".stripMargin
 
@@ -52,7 +56,8 @@ class ZoneFileSuite extends munit.FunSuite:
   }
 
   test("MASTER-FILE-DIAGNOSTICS: accumulates independent line failures") {
-    val input = """
+    val input =
+      """
       |$TTL 1h
       |@ SOA ns hostmaster 1 1h 1h 1h 1h
       |bad A 999.2.3.4
@@ -80,15 +85,17 @@ class ZoneFileSuite extends munit.FunSuite:
       ZoneFile.parse("12345", origin, ZoneFile.Config(maxInputBytes = 4)),
       Left(Vector(ZoneFile.Diagnostic(1, "zone file exceeds 4 bytes")))
     )
-    val diagnostics = ZoneFile.parse(
-      minimumZone + "a A 192.0.2.1\nb A 192.0.2.2\n",
-      origin,
-      ZoneFile.Config(maxRecords = 2)
-    ).left.toOption.get
+    val diagnostics =
+      ZoneFile.parse(
+        minimumZone + "a A 192.0.2.1\nb A 192.0.2.2\n",
+        origin,
+        ZoneFile.Config(maxRecords = 2)
+      ).left.toOption.get
     assert(diagnostics.exists(_.message.contains("record count exceeds 2")))
   }
 
-  private val minimumZone = """
+  private val minimumZone =
+    """
     |$ORIGIN example.test.
     |$TTL 1h
     |@ SOA ns hostmaster 1 1h 15m 1w 5m
@@ -96,5 +103,5 @@ class ZoneFileSuite extends munit.FunSuite:
     |ns A 192.0.2.53
     |""".stripMargin
 
-  private def answer(zone: Zone, owner: String, kind: RecordType): Message =
-    zone.answer(Message(1, questions = Vector(Question(DomainName.unsafe(owner), kind))))
+  private def answer(zone: Zone, owner: String, kind: RecordType): Message = zone
+    .answer(Message(1, questions = Vector(Question(DomainName.unsafe(owner), kind))))

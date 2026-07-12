@@ -40,7 +40,8 @@ private[dns] object ZoneFileSyntax:
         case character => logical += character
       }
       if logical.length > maxLogicalLineLength then
-        errors += ZoneFile.Diagnostic(startLine, s"logical line exceeds $maxLogicalLineLength bytes")
+        errors +=
+          ZoneFile.Diagnostic(startLine, s"logical line exceeds $maxLogicalLineLength bytes")
         logical.clear()
         parentheses = 0
         quoted = false
@@ -48,7 +49,7 @@ private[dns] object ZoneFileSyntax:
         tokenize(logical.result(), startLine) match
           case Right(tokens) if tokens.nonEmpty =>
             result += Statement(startLine, ownerOmitted, tokens)
-          case Right(_) => ()
+          case Right(_)    => ()
           case Left(error) => errors += error
         logical.clear()
       else logical += ' '
@@ -79,14 +80,11 @@ private[dns] object ZoneFileSyntax:
             output += character
             quoted = !quoted
           case ';' if !quoted => done = true
-          case _ => output += character
+          case _              => output += character
       index += 1
     output.result()
 
-  private def tokenize(
-      value: String,
-      line: Int
-  ): Either[ZoneFile.Diagnostic, Vector[String]] =
+  private def tokenize(value: String, line: Int): Either[ZoneFile.Diagnostic, Vector[String]] =
     val tokens = ArrayBuffer.empty[String]
     val token = new StringBuilder
     var quoted = false
@@ -99,9 +97,9 @@ private[dns] object ZoneFileSyntax:
 
     while index < value.length do
       value(index) match
-        case '"' => quoted = !quoted
+        case '"'                                            => quoted = !quoted
         case character if character.isWhitespace && !quoted => finish()
-        case '\\' =>
+        case '\\'                                           =>
           if index + 1 >= value.length then
             return Left(ZoneFile.Diagnostic(line, "trailing escape"))
           val digits = value.slice(index + 1, math.min(index + 4, value.length))
@@ -119,4 +117,3 @@ private[dns] object ZoneFileSyntax:
     finish()
     if quoted then Left(ZoneFile.Diagnostic(line, "unterminated quoted string"))
     else Right(tokens.toVector)
-
