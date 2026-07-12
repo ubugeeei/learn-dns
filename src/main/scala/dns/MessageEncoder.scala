@@ -2,8 +2,8 @@ package dns
 
 /** Validating DNS message encoder, colocated with all outbound wire limits. */
 private[dns] object MessageEncoder:
-  def encode(message: Message): Either[EncodeError, Array[Byte]] =
-    validate(message).map(_ => encodeUnchecked(message))
+  def encode(message: Message): Either[EncodeError, Array[Byte]] = validate(message)
+    .map(_ => encodeUnchecked(message))
 
   private def encodeUnchecked(message: Message): Array[Byte] =
     val writer = new WireWriter()
@@ -34,7 +34,7 @@ private[dns] object MessageEncoder:
     )
     sections.find(_._2 > 0xffff) match
       case Some((name, count)) => Left(EncodeError.SectionCount(name, count))
-      case None =>
+      case None                =>
         val records = message.answers ++ message.authorities ++ message.additionals
         records.iterator.map(validateRecord).collectFirst { case Left(error) => Left(error) }
           .getOrElse(validateEstimatedLength(message, records))
@@ -43,10 +43,11 @@ private[dns] object MessageEncoder:
       message: Message,
       records: Vector[ResourceRecord]
   ): Either[EncodeError, Unit] =
-    val questionBytes = message.questions.iterator
-      .map(question => question.name.wireLength.toLong + 4).sum
-    val recordBytes = records.iterator
-      .map(record => record.name.wireLength.toLong + 10 + rdataLength(record.data)).sum
+    val questionBytes =
+      message.questions.iterator.map(question => question.name.wireLength.toLong + 4).sum
+    val recordBytes =
+      records.iterator.map(record => record.name.wireLength.toLong + 10 + rdataLength(record.data))
+        .sum
     val estimated = 12L + questionBytes + recordBytes
     Either.cond(
       estimated <= MessageCodec.MaxWireMessageBytes,
@@ -94,19 +95,20 @@ private[dns] object MessageEncoder:
       EncodeError.FieldOutOfRange(record.recordType, field, value, bits)
     )
 
-  private def rdataLength(data: RecordData): Long = data match
-    case _: RecordData.A            => 4
-    case _: RecordData.AAAA         => 16
-    case RecordData.NS(name)        => name.wireLength
-    case RecordData.CName(name)     => name.wireLength
-    case RecordData.Ptr(name)       => name.wireLength
-    case RecordData.MX(_, exchange) => 2L + exchange.wireLength
-    case RecordData.TXT(chunks)     => chunks.iterator.map(_.size.toLong + 1).sum
-    case RecordData.SOA(primary, mailbox, _, _, _, _, _) =>
-      primary.wireLength.toLong + mailbox.wireLength + 20
-    case RecordData.SRV(_, _, _, target) => 6L + target.wireLength
-    case RecordData.OPT(options) => options.iterator.map(_.data.size.toLong + 4).sum
-    case RecordData.Unknown(_, bytes) => bytes.size.toLong
+  private def rdataLength(data: RecordData): Long =
+    data match
+      case _: RecordData.A            => 4
+      case _: RecordData.AAAA         => 16
+      case RecordData.NS(name)        => name.wireLength
+      case RecordData.CName(name)     => name.wireLength
+      case RecordData.Ptr(name)       => name.wireLength
+      case RecordData.MX(_, exchange) => 2L + exchange.wireLength
+      case RecordData.TXT(chunks)     => chunks.iterator.map(_.size.toLong + 1).sum
+      case RecordData.SOA(primary, mailbox, _, _, _, _, _) =>
+        primary.wireLength.toLong + mailbox.wireLength + 20
+      case RecordData.SRV(_, _, _, target) => 6L + target.wireLength
+      case RecordData.OPT(options)         => options.iterator.map(_.data.size.toLong + 4).sum
+      case RecordData.Unknown(_, bytes)    => bytes.size.toLong
 
   private def writeRecord(
       writer: WireWriter,
@@ -125,11 +127,11 @@ private[dns] object MessageEncoder:
 
   private def writeData(writer: WireWriter, names: NameCodec.Encoder, data: RecordData): Unit =
     data match
-      case RecordData.A(address)    => writer.bytes(address.getAddress)
-      case RecordData.AAAA(address) => writer.bytes(address.getAddress)
-      case RecordData.NS(name)      => names.writeUncompressed(name)
-      case RecordData.CName(name)   => names.writeUncompressed(name)
-      case RecordData.Ptr(name)     => names.writeUncompressed(name)
+      case RecordData.A(address)               => writer.bytes(address.getAddress)
+      case RecordData.AAAA(address)            => writer.bytes(address.getAddress)
+      case RecordData.NS(name)                 => names.writeUncompressed(name)
+      case RecordData.CName(name)              => names.writeUncompressed(name)
+      case RecordData.Ptr(name)                => names.writeUncompressed(name)
       case RecordData.MX(preference, exchange) =>
         writer.u16(preference)
         names.writeUncompressed(exchange)
