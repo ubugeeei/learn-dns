@@ -11,8 +11,8 @@ object IpAddress:
   def ipv4(value: String): Either[Error, Inet4Address] =
     val pieces = value.split("\\.", -1).toVector
     val octets = pieces.map(piece =>
-      Option.when(piece.nonEmpty && piece.forall(_.isDigit))(piece.toIntOption)
-        .flatten.filter(number => number >= 0 && number <= 255)
+      Option.when(piece.nonEmpty && piece.forall(_.isDigit))(piece.toIntOption).flatten
+        .filter(number => number >= 0 && number <= 255)
     )
     if pieces.size != 4 || octets.exists(_.isEmpty) then Left(Error.InvalidIpv4(value))
     else
@@ -25,4 +25,3 @@ object IpAddress:
       scala.util.Try(InetAddress.getByName(value)).toOption.collect { case address: Inet6Address =>
         address
       }.toRight(Error.InvalidIpv6(value))
-

@@ -73,6 +73,61 @@ class ZoneSuite extends munit.FunSuite:
     assertEquals(response.answers, Vector(wildcard.copy(name = requested)))
   }
 
+  test("WILDCARD-EMPTY-NON-TERMINAL: an existing empty name produces NODATA") {
+    val wildcard = ResourceRecord(
+      DomainName.unsafe("*.example.com."),
+      RecordClass.IN,
+      60,
+      RecordData.ipv4("192.0.2.9")
+    )
+    val descendant = ResourceRecord(
+      DomainName.unsafe("host.branch.example.com."),
+      RecordClass.IN,
+      60,
+      RecordData.ipv4("192.0.2.10")
+    )
+    val wildcardZone = Zone.create(origin, soa, Vector(wildcard, descendant)).toOption.get
+
+    val response = wildcardZone
+      .answer(query(DomainName.unsafe("branch.example.com."), RecordType.A))
+
+    assertEquals(response.flags.responseCode, ResponseCode.NoError)
+    assertEquals(response.answers, Vector.empty)
+    assertEquals(response.authorities, Vector(soa))
+  }
+
+  test("QUESTION-COUNT: authoritative policy rejects zero or multiple questions") {
+    assertEquals(zone.answer(Message(1)).flags.responseCode, ResponseCode.FormatError)
+    assertEquals(
+      zone.answer(Message(
+        1,
+        questions = Vector(Question(host, RecordType.A), Question(host, RecordType.AAAA))
+      )).flags.responseCode,
+      ResponseCode.FormatError
+    )
+  }
+
+  test("CNAME-EXCLUSIVITY: zone validation rejects other data at a CNAME owner") {
+    val cname = ResourceRecord(
+      host,
+      RecordClass.IN,
+      60,
+      RecordData.CName(DomainName.unsafe("target.example.com."))
+    )
+
+    assertEquals(
+      Zone.create(origin, soa, Vector(address, cname)),
+      Left(Zone.Error.CnameCoexists(host))
+    )
+  }
+
+  test("SOA-UNIQUENESS: zone validation rejects an additional SOA") {
+    assertEquals(
+      Zone.create(origin, soa, Vector(soa.copy(ttl = 60))),
+      Left(Zone.Error.MultipleSoa(2))
+    )
+  }
+
   private def query(name: DomainName, kind: RecordType): Message = Message(
     42,
     questions = Vector(Question(name, kind))

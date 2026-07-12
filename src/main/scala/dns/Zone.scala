@@ -17,23 +17,26 @@ final class Zone private (
 
   /** Produces an authoritative response while preserving the request ID and question. */
   def answer(request: Message): Message =
-    request.questions.headOption match
-      case None => response(request, ResponseCode.FormatError)
-      case Some(question) if question.recordClass != RecordClass.IN =>
+    request.questions match
+      case Vector(question) if question.recordClass != RecordClass.IN =>
         response(request, ResponseCode.Refused)
-      case Some(question) if !question.name.isSubdomainOf(origin) =>
+      case Vector(question) if !question.name.isSubdomainOf(origin) =>
         response(request, ResponseCode.Refused)
-      case Some(question) =>
+      case Vector(question) =>
         closestDelegation(question.name) match
           case Some(nameServers) => referral(request, nameServers)
           case None              =>
-            records.get(question.name).orElse(wildcardRecords(question.name)) match
+            val atName = records.get(question.name)
+              .orElse(Option.when(existingNames.contains(question.name))(Vector.empty))
+              .orElse(wildcardRecords(question.name))
+            atName match
               case None => response(request, ResponseCode.NameError, authorities = Vector(soa))
               case Some(atName) =>
                 val selected = select(atName, question.recordType)
                 if selected.nonEmpty then
                   response(request, ResponseCode.NoError, answers = selected)
                 else response(request, ResponseCode.NoError, authorities = Vector(soa))
+      case _ => response(request, ResponseCode.FormatError)
 
   private def closestDelegation(name: DomainName): Option[Vector[ResourceRecord]] = ancestors(name)
     .takeWhile(_ != origin).flatMap(records.get).map(_.filter(_.recordType == RecordType.NS))
@@ -98,6 +101,8 @@ object Zone:
     case SoaDataRequired
     case OutOfZone(name: DomainName)
     case ClassMustBeInternet(name: DomainName)
+    case MultipleSoa(count: Int)
+    case CnameCoexists(name: DomainName)
 
   /** Validates zone-wide invariants once, keeping the query path total. */
   def create(
@@ -108,9 +113,20 @@ object Zone:
     if soa.name != origin then Left(Error.SoaOwnerMismatch(origin, soa.name))
     else if soa.recordType != RecordType.SOA then Left(Error.SoaDataRequired)
     else
-      (records :+ soa).find(record => !record.name.isSubdomainOf(origin)) match
-        case Some(record) => Left(Error.OutOfZone(record.name))
-        case None         =>
-          (records :+ soa).find(_.recordClass != RecordClass.IN) match
-            case Some(record) => Left(Error.ClassMustBeInternet(record.name))
-            case None         => Right(new Zone(origin, (records :+ soa).groupBy(_.name), soa))
+      val all = records :+ soa
+      val soaCount = all.count(_.recordType == RecordType.SOA)
+      val cnameConflict = all.groupBy(_.name).collectFirst {
+        case (name, atName)
+            if atName.exists(_.recordType == RecordType.CNAME) &&
+              atName.exists(_.recordType != RecordType.CNAME) =>
+          name
+      }
+      if soaCount != 1 then Left(Error.MultipleSoa(soaCount))
+      else if cnameConflict.nonEmpty then Left(Error.CnameCoexists(cnameConflict.get))
+      else
+        all.find(record => !record.name.isSubdomainOf(origin)) match
+          case Some(record) => Left(Error.OutOfZone(record.name))
+          case None         =>
+            all.find(_.recordClass != RecordClass.IN) match
+              case Some(record) => Left(Error.ClassMustBeInternet(record.name))
+              case None         => Right(new Zone(origin, (records :+ soa).groupBy(_.name), soa))
