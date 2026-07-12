@@ -106,8 +106,8 @@ answers and distinguish NODATA, NXDOMAIN, delegation, and wildcard synthesis.
 
 22. Separate transport from policy
 23. UDP, truncation, and TCP retry
-24. TTL and a monotonic cache
-25. Negative caching
+24. [TTL and a monotonic cache](03-resolver/02-caching.md)
+25. [Negative caching](03-resolver/02-caching.md#negative-answers-also-have-ttls)
 26. CNAME chains
 27. Read a referral
 28. [Root hints and iterative resolution](03-resolver/01-iterative-resolution.md)
