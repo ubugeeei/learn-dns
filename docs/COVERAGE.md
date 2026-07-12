@@ -44,7 +44,7 @@ operations are separate advanced projects.
 | Unknown RR preservation | Partial | `RecordData.Unknown` | round trip indirectly | explicit property and class/type registry chapter |
 | Name compression decode | Partial | loop/bounds checks | adversarial fixtures | pointer-hop budget and more multi-hop fixtures |
 | Name compression encode | Partial | owner-name suffixes | repeated-name test | compression inside final-packet RDATA |
-| UDP stub exchange | Partial | `DnsClient` | loopback integration | response-source validation and retry policy |
+| UDP stub exchange | Partial | `DnsClient` with EDNS advertisement | loopback integration | response-source validation and retry policy |
 | TCP fallback | Partial | TC retry and framing | loopback integration | persistent connection reuse and multiple outstanding queries |
 | Positive cache | Partial | monotonic expiry | boundary tests | RRset-aware replacement and capacity eviction |
 | Negative cache | Partial | SOA TTL/MINIMUM | NXDOMAIN test | NODATA cache key semantics and stale policy |
@@ -53,8 +53,8 @@ operations are separate advanced projects.
 | Authoritative exact answers | Partial | `Zone` | examples | multi-question policy documentation |
 | Delegations and glue | Partial | closest NS cut | referral test | glue bailiwick validation at construction |
 | Wildcards | Partial | closest-encloser synthesis | example | empty non-terminal and wildcard CNAME tables |
-| UDP/TCP authoritative server | Partial | `DnsServer` | real sockets | EDNS size, overload response, observability hooks |
-| EDNS(0) | Partial | OPT model, payload size, extended RCODE, version, DO, unknown options | round trip + malformed option | negotiation in client/server and chapter |
+| UDP/TCP authoritative server | Partial | `DnsServer` with EDNS/legacy sizing | real sockets | overload response and observability hooks |
+| EDNS(0) | Partial | OPT model, payload negotiation, extended RCODE, BADVERS, DO, unknown options | codec + socket scenarios | beginner chapter |
 | Zone-file loading | Planned | — | — | RFC 1035 presentation parser and validation diagnostics |
 | Query/server CLI | Planned | — | — | commands, exit codes, human and JSON output |
 | Fuzzing | Partial | arbitrary bounded ScalaCheck bytes | totality property | coverage-guided corpus and CI job |

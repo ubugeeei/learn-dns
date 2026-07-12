@@ -63,8 +63,8 @@ final class DnsServer private (
           val peer = packet.getSocketAddress
           workers.execute(() =>
             try
-              val response = process(payload)
-              val encoded = truncateForUdp(response, config.maxUdpResponseBytes)
+              val processed = process(payload)
+              val encoded = truncateForUdp(processed.message, processed.udpLimit)
               udpSocket.send(new DatagramPacket(encoded, encoded.length, peer))
               answered.increment()
             finally permits.release()
@@ -104,7 +104,7 @@ final class DnsServer private (
         val payload = input.readNBytes(length)
         if payload.length != length then continue = false
         else
-          val encoded = MessageCodec.encode(process(payload))
+          val encoded = MessageCodec.encode(process(payload).message)
           output.writeShort(encoded.length)
           output.write(encoded)
           output.flush()
@@ -114,18 +114,55 @@ final class DnsServer private (
         case _: java.net.SocketTimeoutException => continue = false
         case _: java.io.IOException             => continue = false
 
-  private def process(payload: Array[Byte]): Message =
+  private def process(payload: Array[Byte]): Processed =
     MessageCodec.decode(payload) match
-      case Right(request) =>
-        try handler(request)
-        catch case scala.util.control.NonFatal(_) => errorFor(request, ResponseCode.ServerFailure)
-      case Left(_) =>
+      case Right(request) => negotiateEdns(request)
+      case Left(_)        =>
         malformed.increment()
         val id = if payload.length >= 2 then ((payload(0) & 0xff) << 8) | (payload(1) & 0xff) else 0
-        Message(
-          id,
-          Flags(response = true, recursionDesired = false, responseCode = ResponseCode.FormatError)
+        Processed(
+          Message(
+            id,
+            Flags(
+              response = true,
+              recursionDesired = false,
+              responseCode = ResponseCode.FormatError
+            )
+          ),
+          udpLimit = math.min(512, config.maxUdpResponseBytes)
         )
+
+  private def negotiateEdns(request: Message): Processed =
+    val optRecords = request.additionals.filter(_.recordType == RecordType.OPT)
+    if optRecords.size > 1 then
+      Processed(errorFor(request, ResponseCode.FormatError), legacyUdpLimit)
+    else
+      optRecords.headOption match
+        case None         => Processed(invokeHandler(request), legacyUdpLimit)
+        case Some(record) =>
+          Edns.fromRecord(record) match
+            case None => Processed(errorFor(request, ResponseCode.FormatError), legacyUdpLimit)
+            case Some(edns) if edns.version != 0 =>
+              val badVersion = errorFor(request, ResponseCode.NoError).copy(additionals =
+                Vector(
+                  Edns(udpPayloadSize = config.maxUdpResponseBytes, extendedResponseCode = 1)
+                    .toRecord
+                )
+              )
+              Processed(badVersion, math.min(edns.udpPayloadSize, config.maxUdpResponseBytes))
+            case Some(edns) =>
+              val base = invokeHandler(request)
+              val response = base.copy(additionals =
+                base.additionals.filterNot(_.recordType == RecordType.OPT) :+
+                  Edns(config.maxUdpResponseBytes).toRecord
+              )
+              Processed(response, math.min(edns.udpPayloadSize, config.maxUdpResponseBytes))
+
+  private def invokeHandler(request: Message): Message =
+    try handler(request)
+    catch case scala.util.control.NonFatal(_) => errorFor(request, ResponseCode.ServerFailure)
+
+  private def legacyUdpLimit: Int = math.min(512, config.maxUdpResponseBytes)
 
   private def errorFor(request: Message, code: ResponseCode): Message = Message(
     request.id,
@@ -159,6 +196,8 @@ final class DnsServer private (
     else encoded
 
 object DnsServer:
+  private final case class Processed(message: Message, udpLimit: Int)
+
   final case class Config(
       bindAddress: InetAddress = InetAddress.getLoopbackAddress,
       port: Int = 0,
@@ -171,7 +210,7 @@ object DnsServer:
     require(port >= 0 && port <= 65535)
     require(maxConcurrentRequests > 0)
     require(maxUdpRequestBytes >= 512 && maxUdpRequestBytes <= 65535)
-    require(maxUdpResponseBytes >= 12 && maxUdpResponseBytes <= 65535)
+    require(maxUdpResponseBytes >= 512 && maxUdpResponseBytes <= 65535)
 
   final case class Metrics(received: Long, answered: Long, rejected: Long, malformed: Long)
 

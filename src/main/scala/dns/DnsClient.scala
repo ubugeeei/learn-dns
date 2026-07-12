@@ -18,7 +18,8 @@ import scala.concurrent.duration.*
 final class DnsClient(
     server: InetSocketAddress,
     timeout: FiniteDuration = 3.seconds,
-    udpPayloadSize: Int = 4096,
+    udpPayloadSize: Int = 1232,
+    enableEdns: Boolean = true,
     random: SecureRandom = new SecureRandom()
 ):
   import DnsClient.Error
@@ -39,7 +40,8 @@ final class DnsClient(
     val request = Message(
       random.nextInt(0x10000),
       flags = Flags(recursionDesired = recursionDesired),
-      questions = Vector(Question(name, recordType))
+      questions = Vector(Question(name, recordType)),
+      additionals = if enableEdns then Vector(Edns(udpPayloadSize).toRecord) else Vector.empty
     )
     exchangeUdp(request).flatMap { response =>
       if response.flags.truncated then exchangeTcp(request) else Right(response)
