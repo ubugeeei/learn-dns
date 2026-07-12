@@ -131,7 +131,7 @@ answers and distinguish NODATA, NXDOMAIN, delegation, and wildcard synthesis.
 
 41. Fuzzing the decoder
 42. Cache poisoning and DNS Cookies
-43. EDNS
+43. [EDNS](02-codec/10-edns.md)
 44. Reading DNSSEC records
 45. The DNSSEC chain of trust
 46. Operational hardening
