@@ -19,18 +19,29 @@ object Ticker:
  * [[https://www.rfc-editor.org/rfc/rfc2308#section-5 RFC 2308 §5]]. The cache uses monotonic time,
  * so wall-clock corrections cannot resurrect entries.
  *
- * This cache intentionally keys by the entire [[Question]]. A DNSSEC-aware resolver must extend the
- * key with validation and checking-disabled state.
+ * NXDOMAIN is keyed by name and class because it denies the whole name; NODATA remains keyed by the
+ * complete question. A DNSSEC-aware resolver must extend these keys with validation and
+ * checking-disabled state.
  */
-final class Cache(ticker: Ticker = Ticker.system):
+final class Cache(ticker: Ticker = Ticker.system, maxEntries: Int = 10000):
+  require(maxEntries > 0)
+
+  private enum Key:
+    case QuestionKey(question: Question)
+    case NameErrorKey(name: DomainName, recordClass: RecordClass)
+
   private final case class Entry(storedAt: Long, expiresAt: Long, message: Message)
-  private val entries = new ConcurrentHashMap[Question, Entry]()
+  private val entries = new ConcurrentHashMap[Key, Entry]()
 
   /** Returns a cached response with every TTL reduced by elapsed whole seconds. */
-  def get(question: Question): Option[Message] = Option(entries.get(question)).flatMap { entry =>
+  def get(question: Question): Option[Message] = get(
+    Key.NameErrorKey(question.name, question.recordClass)
+  ).orElse(get(Key.QuestionKey(question)))
+
+  private def get(key: Key): Option[Message] = Option(entries.get(key)).flatMap { entry =>
     val now = ticker.nanos
     if now >= entry.expiresAt then
-      entries.remove(question, entry)
+      entries.remove(key, entry)
       None
     else
       val elapsedSeconds = math.max(0L, (now - entry.storedAt) / 1_000_000_000L)
@@ -43,11 +54,18 @@ final class Cache(ticker: Ticker = Ticker.system):
       case Some(ttl) if ttl > 0 =>
         val now = ticker.nanos
         val lifetime = saturatedNanos(ttl)
-        entries.put(question, Entry(now, saturatedAdd(now, lifetime), response))
+        val key =
+          response.flags.responseCode match
+            case ResponseCode.NameError => Key.NameErrorKey(question.name, question.recordClass)
+            case _                      => Key.QuestionKey(question)
+        if !entries.containsKey(key) && entries.size() >= maxEntries then evictEarliest()
+        entries.put(key, Entry(now, saturatedAdd(now, lifetime), normalizeNegative(response, ttl)))
         true
       case _ => false
 
-  def remove(question: Question): Unit = entries.remove(question): Unit
+  def remove(question: Question): Unit =
+    entries.remove(Key.QuestionKey(question)): Unit
+    entries.remove(Key.NameErrorKey(question.name, question.recordClass)): Unit
   def clear(): Unit = entries.clear()
   def size: Int = entries.size()
 
@@ -61,6 +79,24 @@ final class Cache(ticker: Ticker = Ticker.system):
   private def negativeTtl(message: Message): Option[Long] = message.authorities.collectFirst {
     case ResourceRecord(_, _, ttl, soa: RecordData.SOA) => math.min(ttl, soa.minimum)
   }
+
+  private def normalizeNegative(message: Message, ttl: Long): Message =
+    if message.answers.nonEmpty then message
+    else
+      message.copy(authorities = message.authorities.map {
+        case record if record.recordType == RecordType.SOA =>
+          record.copy(ttl = math.min(record.ttl, ttl))
+        case record => record
+      })
+
+  private def evictEarliest(): Unit =
+    val iterator = entries.entrySet().iterator()
+    var earliest: Option[java.util.Map.Entry[Key, Entry]] = None
+    while iterator.hasNext do
+      val candidate = iterator.next()
+      if earliest.forall(_.getValue.expiresAt > candidate.getValue.expiresAt) then
+        earliest = Some(candidate)
+    earliest.foreach(entry => entries.remove(entry.getKey, entry.getValue): Unit)
 
   private def adjustTtls(message: Message, elapsed: Long): Message =
     def section(records: Vector[ResourceRecord]): Vector[ResourceRecord] = records

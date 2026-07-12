@@ -2,7 +2,8 @@ package dns
 
 class RootHintsSuite extends munit.FunSuite:
   test("ROOT-HINTS: extracts addresses only for advertised root servers") {
-    val hints = RootHints.parse("""
+    val hints =
+      RootHints.parse("""
       |. 3600000 IN NS A.ROOT-SERVERS.NET.
       |. 3600000 IN NS B.ROOT-SERVERS.NET.
       |A.ROOT-SERVERS.NET. 3600000 A 198.41.0.4
@@ -13,10 +14,7 @@ class RootHintsSuite extends munit.FunSuite:
 
     assertEquals(
       hints.nameServers,
-      Vector(
-        DomainName.unsafe("A.ROOT-SERVERS.NET."),
-        DomainName.unsafe("B.ROOT-SERVERS.NET.")
-      )
+      Vector(DomainName.unsafe("A.ROOT-SERVERS.NET."), DomainName.unsafe("B.ROOT-SERVERS.NET."))
     )
     assertEquals(hints.addresses.map(_.getAddress.getAddress.length), Vector(4, 16, 4))
     assert(!hints.addresses.exists(_.getAddress.getHostAddress == "192.0.2.66"))

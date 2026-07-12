@@ -45,7 +45,7 @@ class CacheSuite extends munit.FunSuite:
     )
     assert(cache.put(question, response))
     clock.nanos = 119_000_000_000L
-    assertEquals(cache.get(question).map(_.authorities.head.ttl), Some(481L))
+    assertEquals(cache.get(question).map(_.authorities.head.ttl), Some(1L))
     clock.nanos = 120_000_000_000L
     assertEquals(cache.get(question), None)
   }
@@ -56,6 +56,55 @@ class CacheSuite extends munit.FunSuite:
       .copy(flags = Flags(response = true, responseCode = ResponseCode.ServerFailure))
     assert(!cache.put(question, response))
   }
+
+  test("NXDOMAIN applies to every type at the same name and class") {
+    val cache = new Cache(new ManualTicker())
+    val response = negative(ResponseCode.NameError)
+    assert(cache.put(question, response))
+
+    assert(cache.get(question.copy(recordType = RecordType.AAAA)).nonEmpty)
+  }
+
+  test("NODATA remains specific to the requested type") {
+    val cache = new Cache(new ManualTicker())
+    assert(cache.put(question, negative(ResponseCode.NoError)))
+
+    assertEquals(cache.get(question.copy(recordType = RecordType.AAAA)), None)
+  }
+
+  test("capacity evicts the entry with the earliest expiry") {
+    val cache = new Cache(new ManualTicker(), maxEntries = 2)
+    val first = question.copy(name = DomainName.unsafe("first.example.com."))
+    val second = question.copy(name = DomainName.unsafe("second.example.com."))
+    val third = question.copy(name = DomainName.unsafe("third.example.com."))
+
+    assert(cache.put(first, answer(Vector(address(10).copy(name = first.name)))))
+    assert(cache.put(second, answer(Vector(address(30).copy(name = second.name)))))
+    assert(cache.put(third, answer(Vector(address(20).copy(name = third.name)))))
+
+    assertEquals(cache.get(first), None)
+    assert(cache.get(second).nonEmpty)
+    assert(cache.get(third).nonEmpty)
+    assertEquals(cache.size, 2)
+  }
+
+  private def negative(code: ResponseCode): Message =
+    val soa = ResourceRecord(
+      DomainName.unsafe("example.com."),
+      RecordClass.IN,
+      60,
+      RecordData.SOA(
+        DomainName.unsafe("ns.example.com."),
+        DomainName.unsafe("hostmaster.example.com."),
+        1,
+        3600,
+        600,
+        86400,
+        60
+      )
+    )
+    answer(Vector.empty)
+      .copy(flags = Flags(response = true, responseCode = code), authorities = Vector(soa))
 
   private def address(ttl: Long): ResourceRecord = ResourceRecord(
     name,

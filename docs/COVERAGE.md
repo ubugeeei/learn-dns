@@ -46,8 +46,8 @@ operations are separate advanced projects.
 | Name compression encode | Partial | owner-name suffixes | repeated-name test | compression inside final-packet RDATA |
 | UDP stub exchange | Partial | `DnsClient` with EDNS advertisement | loopback integration | response-source validation and retry policy |
 | TCP fallback | Partial | TC retry and framing | loopback integration | persistent connection reuse and multiple outstanding queries |
-| Positive cache | Partial | monotonic expiry | boundary tests | RRset-aware replacement and capacity eviction |
-| Negative cache | Partial | SOA TTL/MINIMUM | NXDOMAIN test | NODATA cache key semantics and stale policy |
+| Positive cache | Partial | monotonic expiry and bounded earliest-expiry eviction | boundary/capacity tests | RRset-aware replacement |
+| Negative cache | Partial | normalized SOA TTL, name-wide NXDOMAIN, type-specific NODATA | key and expiry tests | stale-serving policy |
 | Iterative resolver | Partial | validated root hints, referrals, CNAME, retries, subsidiary NS lookup, shared budgets, cached service | bootstrap, packet, and request-policy scenarios | IPv6 subsidiary lookup |
 | Bailiwick validation | Partial | accepts only in-zone glue | malicious additional scenario | sibling-zone cases |
 | Authoritative exact answers | Partial | `Zone` | examples | multi-question policy documentation |
