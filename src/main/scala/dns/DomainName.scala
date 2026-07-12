@@ -22,6 +22,10 @@ final class DomainName private (private val rawLabels: Vector[Vector[Byte]]):
   def prepend(label: String): Either[DomainName.Error, DomainName] =
     DomainName.fromLabels(Vector(DomainName.asciiBytes(label)) ++ rawLabels)
 
+  /** Returns the enclosing domain, or `None` for the root. */
+  def parent: Option[DomainName] =
+    if isRoot then None else DomainName.fromLabels(rawLabels.drop(1)).toOption
+
   /** Whether this name is at or below `zone`, using ASCII case-insensitive DNS matching. */
   def isSubdomainOf(zone: DomainName): Boolean =
     rawLabels.size >= zone.rawLabels.size &&

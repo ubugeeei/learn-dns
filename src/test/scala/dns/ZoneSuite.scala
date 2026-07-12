@@ -35,5 +35,26 @@ class ZoneSuite extends munit.FunSuite:
     assertEquals(Zone.create(origin, soa, Vector(outside)), Left(Zone.Error.OutOfZone(outside.name)))
   }
 
+  test("returns a non-authoritative referral with in-zone glue") {
+    val child = DomainName.unsafe("child.example.com.")
+    val nameServer = DomainName.unsafe("ns.child.example.com.")
+    val delegation = ResourceRecord(child, RecordClass.IN, 3600, RecordData.NS(nameServer))
+    val glue = ResourceRecord(nameServer, RecordClass.IN, 3600, RecordData.ipv4("192.0.2.53"))
+    val delegated = Zone.create(origin, soa, Vector(delegation, glue)).toOption.get
+    val response = delegated.answer(query(DomainName.unsafe("www.child.example.com."), RecordType.A))
+    assert(!response.flags.authoritative)
+    assertEquals(response.authorities, Vector(delegation))
+    assertEquals(response.additionals, Vector(glue))
+  }
+
+  test("synthesizes an owner name from the closest wildcard") {
+    val wildcardName = DomainName.unsafe("*.example.com.")
+    val wildcard = ResourceRecord(wildcardName, RecordClass.IN, 60, RecordData.ipv4("192.0.2.9"))
+    val wildcardZone = Zone.create(origin, soa, Vector(wildcard)).toOption.get
+    val requested = DomainName.unsafe("missing.example.com.")
+    val response = wildcardZone.answer(query(requested, RecordType.A))
+    assertEquals(response.answers, Vector(wildcard.copy(name = requested)))
+  }
+
   private def query(name: DomainName, kind: RecordType): Message =
     Message(42, questions = Vector(Question(name, kind)))

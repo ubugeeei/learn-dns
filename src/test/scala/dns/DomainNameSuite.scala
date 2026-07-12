@@ -24,6 +24,12 @@ class DomainNameSuite extends munit.FunSuite:
     assert(name.isSubdomainOf(DomainName.Root))
   }
 
+  test("parent removes the leftmost label until root") {
+    assertEquals(DomainName.unsafe("www.example.com.").parent, Some(DomainName.unsafe("example.com.")))
+    assertEquals(DomainName.unsafe("com.").parent, Some(DomainName.Root))
+    assertEquals(DomainName.Root.parent, None)
+  }
+
   test("rejects empty and oversized labels") {
     assertEquals(DomainName.fromString("a..example."), Left(DomainName.Error.EmptyLabel))
     assertEquals(
