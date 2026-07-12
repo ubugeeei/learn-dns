@@ -24,7 +24,13 @@ object OpCode:
       case 5     => Update
       case other => Unknown(other)
 
-/** Four-bit response code. Extended RCODEs require EDNS, RFC 6891 §6.1.3. */
+/**
+ * Four-bit response code from
+ * [[https://www.rfc-editor.org/rfc/rfc1035#section-4.1.1 RFC 1035 §4.1.1]].
+ *
+ * Extended response codes require EDNS; see
+ * [[https://www.rfc-editor.org/rfc/rfc6891#section-6.1.3 RFC 6891 §6.1.3]].
+ */
 enum ResponseCode(val code: Int) derives CanEqual:
   case NoError extends ResponseCode(0)
   case FormatError extends ResponseCode(1)
@@ -45,7 +51,13 @@ object ResponseCode:
       case 5     => Refused
       case other => Unknown(other)
 
-/** Resource-record type codes from the IANA DNS Parameters registry. */
+/**
+ * Resource-record type codes from the
+ * [[https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml IANA DNS Parameters registry]].
+ *
+ * Unknown values remain representable so decoding a newly assigned type does not destroy its
+ * numeric identity.
+ */
 enum RecordType(val code: Int) derives CanEqual:
   case A extends RecordType(1)
   case NS extends RecordType(2)
@@ -76,6 +88,9 @@ object RecordType:
       case 255   => ANY
       case other => Unknown(other)
 
+/**
+ * DNS CLASS values from [[https://www.rfc-editor.org/rfc/rfc1035#section-3.2.4 RFC 1035 §3.2.4]].
+ */
 enum RecordClass(val code: Int) derives CanEqual:
   case IN extends RecordClass(1)
   case CH extends RecordClass(3)
@@ -92,7 +107,13 @@ object RecordClass:
       case 255   => ANY
       case other => Unknown(other)
 
-/** Header flags, excluding the transaction identifier and section counts. */
+/**
+ * Header flags, excluding the transaction identifier and section counts.
+ *
+ * Every field maps to the bit diagram in
+ * [[https://www.rfc-editor.org/rfc/rfc1035#section-4.1.1 RFC 1035 §4.1.1]]. AD and CD were later
+ * defined by [[https://www.rfc-editor.org/rfc/rfc4035#section-3.2 RFC 4035 §3.2]].
+ */
 final case class Flags(
     response: Boolean = false,
     opCode: OpCode = OpCode.Query,
@@ -105,13 +126,25 @@ final case class Flags(
     responseCode: ResponseCode = ResponseCode.NoError
 )
 
+/**
+ * One DNS question: owner name, requested type, and namespace class.
+ *
+ * The wire layout is specified by
+ * [[https://www.rfc-editor.org/rfc/rfc1035#section-4.1.2 RFC 1035 §4.1.2]].
+ */
 final case class Question(
     name: DomainName,
     recordType: RecordType,
     recordClass: RecordClass = RecordClass.IN
 )
 
-/** Typed resource-record data. Unknown data is preserved for forward compatibility. */
+/**
+ * Typed resource-record data.
+ *
+ * Name-bearing cases use [[DomainName]] rather than storing their compressed wire bytes.
+ * [[RecordData.Unknown]] preserves unrecognized RDATA exactly for forward-compatible proxies and
+ * diagnostic tooling.
+ */
 enum RecordData derives CanEqual:
   case A(address: Inet4Address)
   case AAAA(address: Inet6Address)
@@ -139,7 +172,13 @@ object RecordData:
     InetAddress.getByName(value).asInstanceOf[Inet6Address]
   )
 
-/** A complete DNS resource record; TTL is stored as the unsigned 32-bit wire value. */
+/**
+ * A complete DNS resource record.
+ *
+ * TTL is stored as the unsigned 32-bit wire value described in
+ * [[https://www.rfc-editor.org/rfc/rfc1035#section-3.2.1 RFC 1035 §3.2.1]]. [[recordType]] is
+ * derived from [[data]], preventing contradictory type/data pairs from being constructed.
+ */
 final case class ResourceRecord(
     name: DomainName,
     recordClass: RecordClass,
@@ -161,7 +200,13 @@ final case class ResourceRecord(
       case _: RecordData.SRV         => RecordType.SRV
       case value: RecordData.Unknown => value.recordType
 
-/** A DNS message as four ordered sections, per RFC 1035 §4.1. */
+/**
+ * A DNS message as four ordered sections.
+ *
+ * Section order and count semantics follow
+ * [[https://www.rfc-editor.org/rfc/rfc1035#section-4.1 RFC 1035 §4.1]]. The ID is validated as an
+ * unsigned 16-bit value at construction.
+ */
 final case class Message(
     id: Int,
     flags: Flags = Flags(),

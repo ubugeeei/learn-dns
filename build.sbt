@@ -12,6 +12,9 @@ lazy val root = project.in(file(".")).settings(
     "-Wvalue-discard",
     "-Wnonunit-statement"
   ),
-  libraryDependencies += "org.scalameta" %% "munit" % "1.2.0" % Test,
+  libraryDependencies ++= Seq(
+    "org.scalameta" %% "munit" % "1.2.0" % Test,
+    "org.scalameta" %% "munit-scalacheck" % "1.2.0" % Test
+  ),
   Test / parallelExecution := true
 )
