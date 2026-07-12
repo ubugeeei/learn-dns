@@ -85,7 +85,10 @@ class CliSuite extends munit.FunSuite:
   }
 
   test("RECURSIVE-CLI: requires roots and parses IPv4 and IPv6 endpoints") {
-    assertEquals(DnsRecurse.parse(Vector.empty), Left("at least one --root address is required"))
+    assertEquals(
+      DnsRecurse.parse(Vector.empty),
+      Left("at least one --root or --root-hints file is required")
+    )
 
     val config =
       DnsRecurse.parse(Vector(
@@ -103,6 +106,22 @@ class CliSuite extends munit.FunSuite:
     assertEquals(config.roots.map(_.getAddress.getAddress.length), Vector(4, 16))
     assertEquals(config.port, 0)
     assertEquals(config.maxUdpResponseBytes, 1400)
+  }
+
+  test("RECURSIVE-CLI-HINTS: loads a validated root hints file") {
+    val file = Files.createTempFile("learn-dns-roots", ".hints")
+    try
+      Files.writeString(
+        file,
+        ". 60 NS A.ROOT-SERVERS.NET.\nA.ROOT-SERVERS.NET. 60 A 192.0.2.1\n",
+        StandardCharsets.UTF_8
+      )
+      val config = DnsRecurse.parse(Vector("--root-hints", file.toString)).toOption.get
+
+      val roots = DnsRecurse.loadRoots(config).toOption.get
+
+      assertEquals(roots.map(_.getAddress.getHostAddress), Vector("192.0.2.1"))
+    finally Files.deleteIfExists(file): Unit
   }
 
   private val minimumZone =

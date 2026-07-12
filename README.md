@@ -26,7 +26,7 @@ sbt 'runMain dns.cli.DnsServe ./example.zone example.test. --port 5353'
 Run a caching iterative resolver from explicitly configured root servers:
 
 ```console
-sbt 'runMain dns.cli.DnsRecurse --root 198.41.0.4 --port 5353'
+sbt 'runMain dns.cli.DnsRecurse --root-hints ./root.hints --port 5353'
 ```
 
 The implementation follows the IETF specifications linked from its Scaladoc

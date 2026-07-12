@@ -26,7 +26,15 @@ object ZoneFile:
       input: String,
       initialOrigin: DomainName,
       config: Config = Config()
-  ): Either[Vector[Diagnostic], Zone] =
+  ): Either[Vector[Diagnostic], Zone] = parseRecords(input, initialOrigin, config)
+    .flatMap(records => buildZone(initialOrigin, records))
+
+  /** Parses records without requiring an SOA, for root hints and fixtures. */
+  def parseRecords(
+      input: String,
+      initialOrigin: DomainName,
+      config: Config = Config()
+  ): Either[Vector[Diagnostic], Vector[ResourceRecord]] =
     if input.getBytes(StandardCharsets.UTF_8).length > config.maxInputBytes then
       Left(Vector(Diagnostic(1, s"zone file exceeds ${config.maxInputBytes} bytes")))
     else
@@ -45,7 +53,7 @@ object ZoneFile:
       statements: Vector[ZoneFileSyntax.Statement],
       initialOrigin: DomainName,
       config: Config
-  ): Either[Vector[Diagnostic], Zone] =
+  ): Either[Vector[Diagnostic], Vector[ResourceRecord]] =
     val finalState =
       statements.foldLeft(State(initialOrigin, None, None, Vector.empty, Vector.empty)) {
         (state, statement) =>
@@ -58,7 +66,7 @@ object ZoneFile:
           else parseRecord(state, statement)
       }
     if finalState.diagnostics.nonEmpty then Left(finalState.diagnostics)
-    else buildZone(initialOrigin, finalState.records)
+    else Right(finalState.records)
 
   private def parseDirective(state: State, statement: ZoneFileSyntax.Statement): State =
     statement.tokens.map(_.toUpperCase) match
