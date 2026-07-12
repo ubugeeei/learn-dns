@@ -8,7 +8,7 @@ class ResolverSuite extends munit.FunSuite:
     val cache = new Cache(new Ticker { def nanos: Long = 0L })
     val stored = Message(1, Flags(response = true), Vector(question),
       Vector(ResourceRecord(name, RecordClass.IN, 60, RecordData.ipv4("192.0.2.1"))))
-    cache.put(question, stored)
+    assert(cache.put(question, stored))
     var calls = 0
     val upstream = new Exchange[[value] =>> Either[DnsClient.Error, value]]:
       def apply(request: Message): Either[DnsClient.Error, Message] =
